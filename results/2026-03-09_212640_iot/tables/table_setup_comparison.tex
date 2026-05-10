@@ -1,0 +1,27 @@
+% Auto-generated setup cost comparison
+\begin{table}[htbp]
+\centering
+\caption{Setup cost comparison across UVC, Groth16, and Nova.}
+\label{tab:setup-comparison}
+\scriptsize
+\begin{tabular}{llrrrrr}
+\toprule
+ & & \multicolumn{2}{c}{UVC} & Groth16 & Nova \\
+\cmidrule(lr){3-4}
+Circuit & $n$ & $B$ & Setup (ms) & Setup at $j{=}1$ (ms) & Setup (ms) \\
+\midrule
+\texttt{sensor_fusion} & 4 & 64 & 128 & 9.8 & 740 \\
+ &  & 256 & 429 &  &  \\
+ &  & 1024 & 1352 &  &  \\
+\midrule
+\texttt{sensor_fusion} & 6 & 64 & 169 & 11.1 & 759 \\
+ &  & 256 & 516 &  &  \\
+ &  & 1024 & 1801 &  &  \\
+\midrule
+\texttt{sensor_fusion} & 8 & 64 & 205 & 12.6 & 776 \\
+ &  & 256 & 631 &  &  \\
+ &  & 1024 & 2184 &  &  \\
+\midrule
+\bottomrule
+\end{tabular}
+\end{table}

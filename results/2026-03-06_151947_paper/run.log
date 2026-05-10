@@ -1,0 +1,1838 @@
+============================================================
+  UVC Benchmark Suite
+  Fri Mar  6 15:19:47 KST 2026
+  Mode: all
+  Tag:  paper
+  Reps: 10
+  Output: /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/results/2026-03-06_151947_paper
+============================================================
+
+Date:     2026-03-06T06:19:47Z
+Hostname: GoM-MacStudioM1.local
+OS:       Darwin 25.3.0 arm64
+CPU:      Apple M1 Max
+Cores:    10
+RAM:      64 GB
+Compiler: Apple clang version 17.0.0 (clang-1700.6.4.2)
+Build:    Release -O2 -march=native
+Reps:     10
+Configs:  18 C++ + 9 Nova
+
+  Building all benchmarks...
+[ 51%] Built target ff
+[ 96%] Built target snark
+[100%] Built target bench_comparative
+  C++ binary: /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/build/bench_comparative
+    Finished `release` profile [optimized] target(s) in 0.06s
+  Nova binary: /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/nova-bench/target/release/nova-bench
+
+
+============================================================
+  C++ Benchmarks: UVC + Groth16
+  Configurations: 18
+============================================================
+
+------------------------------------------------------------
+  Running: [1/18] mimc n=270 B=16
+  Command: bench_comparative --circuit mimc --n 270 --B 16 --output-dir /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/results/2026-03-06_151947_paper/csv --reps 10
+------------------------------------------------------------
+================================================================
+Comparative Benchmark: UVC vs Groth16
+================================================================
+  Circuit: mimc, n=270, B=16, reps=10
+  Output: /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/results/2026-03-06_151947_paper/csv/
+
+================================================================
+UVC Benchmark: circuit=mimc, n=270, B=16
+================================================================
+  Circuit: 270 constraints, 272 vars, state=1, transition=1
+
+  [Setup] Generating CRS for B=16...
+* UVC Setup: B=16, n=272, state=1, transition=1
+* Composed C_16: 4320 constraints, 4337 variables, 2 inputs
+* QAP (C_B) variables: 4337, degree: 4352, inputs: 2
+* UVC max compositions (B): 16
+* G1 elements in PK: 17363
+* G2 elements in PK: 4339
+* PK size in bits: 4527452
+* H_query_full size: 4351
+* Step 2: 271 new wires (0 io, 271 wt)
+* Step 3: 271 new wires (0 io, 271 wt)
+* Step 4: 271 new wires (0 io, 271 wt)
+* Step 5: 271 new wires (0 io, 271 wt)
+* Step 6: 271 new wires (0 io, 271 wt)
+* Step 7: 271 new wires (0 io, 271 wt)
+* Step 8: 271 new wires (0 io, 271 wt)
+* Step 9: 271 new wires (0 io, 271 wt)
+* Step 10: 271 new wires (0 io, 271 wt)
+* Step 11: 271 new wires (0 io, 271 wt)
+* Step 12: 271 new wires (0 io, 271 wt)
+* Step 13: 271 new wires (0 io, 271 wt)
+* Step 14: 271 new wires (0 io, 271 wt)
+* Step 15: 271 new wires (0 io, 271 wt)
+* Step 16: 271 new wires (0 io, 271 wt)
+* UVC VK: 16 max steps
+* G2 elements in VK: 2
+* GT elements in VK: 1
+* gamma_ABC size: 2
+  Setup: 792.3 ms, CRS: 21156 G1 + 8405 G2
+  Building proof chain (steps 1..16)...
+* UVC Prove step 1
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 1 (0.37%)
+* Elements of w remaining: 272 (99.63%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 91 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 270 (100.00%)
+* UVC proof at step 1
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Cached h poly size: 4351
+* UVC Prove step 2
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 91 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* UVC proof at step 2
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Cached h poly size: 4351
+* UVC Prove step 3
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 91 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* UVC proof at step 3
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Cached h poly size: 4351
+* UVC Prove step 4
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 91 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* UVC proof at step 4
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Cached h poly size: 4351
+* UVC Prove step 5
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 91 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* UVC proof at step 5
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Cached h poly size: 4351
+* UVC Prove step 6
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 91 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* UVC proof at step 6
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Cached h poly size: 4351
+* UVC Prove step 7
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 91 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* UVC proof at step 7
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Cached h poly size: 4351
+* UVC Prove step 8
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 91 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* UVC proof at step 8
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Cached h poly size: 4351
+* UVC Prove step 9
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 91 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* UVC proof at step 9
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Cached h poly size: 4351
+* UVC Prove step 10
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 91 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* UVC proof at step 10
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Cached h poly size: 4351
+* UVC Prove step 11
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 91 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* UVC proof at step 11
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Cached h poly size: 4351
+* UVC Prove step 12
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 91 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* UVC proof at step 12
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Cached h poly size: 4351
+* UVC Prove step 13
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 91 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* UVC proof at step 13
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Cached h poly size: 4351
+* UVC Prove step 14
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 91 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* UVC proof at step 14
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Cached h poly size: 4351
+* UVC Prove step 15
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 91 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* UVC proof at step 15
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Cached h poly size: 4351
+* UVC Prove step 16
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 91 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* UVC proof at step 16
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Cached h poly size: 4351
+
+  Step    Prove (ms)    Verify (ms)   Proof bits    Verified  
+  ------  ------------  ------------  ------------  ----------
+* UVC Prove step 1
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 1 (0.37%)
+* Elements of w remaining: 272 (99.63%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 91 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 270 (100.00%)
+* UVC proof at step 1
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Cached h poly size: 4351
+* UVC Prove step 1
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 1 (0.37%)
+* Elements of w remaining: 272 (99.63%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 91 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 270 (100.00%)
+* UVC proof at step 1
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Cached h poly size: 4351
+* UVC Prove step 1
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 1 (0.37%)
+* Elements of w remaining: 272 (99.63%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 91 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 270 (100.00%)
+* UVC proof at step 1
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Cached h poly size: 4351
+* UVC Prove step 1
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 1 (0.37%)
+* Elements of w remaining: 272 (99.63%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 91 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 270 (100.00%)
+* UVC proof at step 1
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Cached h poly size: 4351
+* UVC Prove step 1
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 1 (0.37%)
+* Elements of w remaining: 272 (99.63%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 91 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 270 (100.00%)
+* UVC proof at step 1
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Cached h poly size: 4351
+* UVC Prove step 1
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 1 (0.37%)
+* Elements of w remaining: 272 (99.63%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 91 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 270 (100.00%)
+* UVC proof at step 1
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Cached h poly size: 4351
+* UVC Prove step 1
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 1 (0.37%)
+* Elements of w remaining: 272 (99.63%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 91 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 270 (100.00%)
+* UVC proof at step 1
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Cached h poly size: 4351
+* UVC Prove step 1
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 1 (0.37%)
+* Elements of w remaining: 272 (99.63%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 91 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 270 (100.00%)
+* UVC proof at step 1
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Cached h poly size: 4351
+* UVC Prove step 1
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 1 (0.37%)
+* Elements of w remaining: 272 (99.63%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 91 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 270 (100.00%)
+* UVC proof at step 1
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Cached h poly size: 4351
+* UVC Prove step 1
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 1 (0.37%)
+* Elements of w remaining: 272 (99.63%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 91 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 270 (100.00%)
+* UVC proof at step 1
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Cached h poly size: 4351
+* UVC Verify step 1: PASS
+* UVC Verify step 1: PASS
+* UVC Verify step 1: PASS
+* UVC Verify step 1: PASS
+* UVC Verify step 1: PASS
+* UVC Verify step 1: PASS
+* UVC Verify step 1: PASS
+* UVC Verify step 1: PASS
+* UVC Verify step 1: PASS
+* UVC Verify step 1: PASS
+  1       191.40        4.14          1019          PASS      
+* UVC Prove step 2
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 91 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* UVC proof at step 2
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Cached h poly size: 4351
+* UVC Prove step 2
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 91 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* UVC proof at step 2
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Cached h poly size: 4351
+* UVC Prove step 2
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 91 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* UVC proof at step 2
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Cached h poly size: 4351
+* UVC Prove step 2
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 91 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* UVC proof at step 2
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Cached h poly size: 4351
+* UVC Prove step 2
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 91 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* UVC proof at step 2
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Cached h poly size: 4351
+* UVC Prove step 2
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 91 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* UVC proof at step 2
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Cached h poly size: 4351
+* UVC Prove step 2
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 91 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* UVC proof at step 2
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Cached h poly size: 4351
+* UVC Prove step 2
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 91 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* UVC proof at step 2
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Cached h poly size: 4351
+* UVC Prove step 2
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 91 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* UVC proof at step 2
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Cached h poly size: 4351
+* UVC Prove step 2
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 91 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* UVC proof at step 2
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Cached h poly size: 4351
+* UVC Verify step 2: PASS
+* UVC Verify step 2: PASS
+* UVC Verify step 2: PASS
+* UVC Verify step 2: PASS
+* UVC Verify step 2: PASS
+* UVC Verify step 2: PASS
+* UVC Verify step 2: PASS
+* UVC Verify step 2: PASS
+* UVC Verify step 2: PASS
+* UVC Verify step 2: PASS
+  2       191.78        4.09          1019          PASS      
+* UVC Prove step 4
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 91 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* UVC proof at step 4
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Cached h poly size: 4351
+* UVC Prove step 4
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 91 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* UVC proof at step 4
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Cached h poly size: 4351
+* UVC Prove step 4
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 91 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* UVC proof at step 4
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Cached h poly size: 4351
+* UVC Prove step 4
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 91 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* UVC proof at step 4
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Cached h poly size: 4351
+* UVC Prove step 4
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 91 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* UVC proof at step 4
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Cached h poly size: 4351
+* UVC Prove step 4
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 91 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* UVC proof at step 4
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Cached h poly size: 4351
+* UVC Prove step 4
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 91 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* UVC proof at step 4
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Cached h poly size: 4351
+* UVC Prove step 4
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 91 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* UVC proof at step 4
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Cached h poly size: 4351
+* UVC Prove step 4
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 91 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* UVC proof at step 4
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Cached h poly size: 4351
+* UVC Prove step 4
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 91 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* UVC proof at step 4
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Cached h poly size: 4351
+* UVC Verify step 4: PASS
+* UVC Verify step 4: PASS
+* UVC Verify step 4: PASS
+* UVC Verify step 4: PASS
+* UVC Verify step 4: PASS
+* UVC Verify step 4: PASS
+* UVC Verify step 4: PASS
+* UVC Verify step 4: PASS
+* UVC Verify step 4: PASS
+* UVC Verify step 4: PASS
+  4       196.25        4.21          1019          PASS      
+* UVC Prove step 8
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 91 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* UVC proof at step 8
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Cached h poly size: 4351
+* UVC Prove step 8
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 91 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* UVC proof at step 8
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Cached h poly size: 4351
+* UVC Prove step 8
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 91 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* UVC proof at step 8
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Cached h poly size: 4351
+* UVC Prove step 8
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 91 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* UVC proof at step 8
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Cached h poly size: 4351
+* UVC Prove step 8
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 91 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* UVC proof at step 8
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Cached h poly size: 4351
+* UVC Prove step 8
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 91 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* UVC proof at step 8
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Cached h poly size: 4351
+* UVC Prove step 8
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 91 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* UVC proof at step 8
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Cached h poly size: 4351
+* UVC Prove step 8
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 91 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* UVC proof at step 8
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Cached h poly size: 4351
+* UVC Prove step 8
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 91 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* UVC proof at step 8
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Cached h poly size: 4351
+* UVC Prove step 8
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 91 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* UVC proof at step 8
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Cached h poly size: 4351
+* UVC Verify step 8: PASS
+* UVC Verify step 8: PASS
+* UVC Verify step 8: PASS
+* UVC Verify step 8: PASS
+* UVC Verify step 8: PASS
+* UVC Verify step 8: PASS
+* UVC Verify step 8: PASS
+* UVC Verify step 8: PASS
+* UVC Verify step 8: PASS
+* UVC Verify step 8: PASS
+  8       192.00        4.30          1019          PASS      
+* UVC Prove step 16
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 91 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* UVC proof at step 16
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Cached h poly size: 4351
+* UVC Prove step 16
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 91 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* UVC proof at step 16
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Cached h poly size: 4351
+* UVC Prove step 16
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 91 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* UVC proof at step 16
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Cached h poly size: 4351
+* UVC Prove step 16
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 91 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* UVC proof at step 16
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Cached h poly size: 4351
+* UVC Prove step 16
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 91 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* UVC proof at step 16
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Cached h poly size: 4351
+* UVC Prove step 16
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 91 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* UVC proof at step 16
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Cached h poly size: 4351
+* UVC Prove step 16
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 91 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* UVC proof at step 16
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Cached h poly size: 4351
+* UVC Prove step 16
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 91 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* UVC proof at step 16
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Cached h poly size: 4351
+* UVC Prove step 16
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 91 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* UVC proof at step 16
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Cached h poly size: 4351
+* UVC Prove step 16
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 91 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 271 (100.00%)
+* UVC proof at step 16
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Cached h poly size: 4351
+* UVC Verify step 16: PASS
+* UVC Verify step 16: PASS
+* UVC Verify step 16: PASS
+* UVC Verify step 16: PASS
+* UVC Verify step 16: PASS
+* UVC Verify step 16: PASS
+* UVC Verify step 16: PASS
+* UVC Verify step 16: PASS
+* UVC Verify step 16: PASS
+* UVC Verify step 16: PASS
+  16      191.97        4.08          1019          PASS      
+
+  UVC results written to /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/results/2026-03-06_151947_paper/csv/uvc_results.csv
+
+================================================================
+Groth16 Benchmark: circuit=mimc, n=270, B=16
+================================================================
+
+  Step    C_j constr  Setup (ms)    Prove (ms)    Verify (ms)   Verified  
+  ------  ----------  ------------  ------------  ------------  ----------
+* Composed C_1: 270 constraints, 272 variables, 2 inputs
+Swap is not beneficial, not performing
+* QAP number of variables: 272
+* QAP pre degree: 270
+* QAP degree: 288
+* QAP number of input variables: 2
+* G1 window: 7
+* G2 window: 5
+* G1 elements in PK: 1104
+* Non-zero G1 elements in PK: 922
+* G2 elements in PK: 274
+* Non-zero G2 elements in PK: 92
+* PK size in bits: 287762
+* G1 elements in VK: 2
+* G2 elements in VK: 2
+* GT elements in VK: 1
+* VK size in bits: 1911
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 1 (0.37%)
+* Elements of w remaining: 272 (99.63%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 91 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 270 (100.00%)
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 1 (0.37%)
+* Elements of w remaining: 272 (99.63%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 91 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 270 (100.00%)
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 1 (0.37%)
+* Elements of w remaining: 272 (99.63%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 91 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 270 (100.00%)
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 1 (0.37%)
+* Elements of w remaining: 272 (99.63%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 91 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 270 (100.00%)
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 1 (0.37%)
+* Elements of w remaining: 272 (99.63%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 91 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 270 (100.00%)
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 1 (0.37%)
+* Elements of w remaining: 272 (99.63%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 91 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 270 (100.00%)
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 1 (0.37%)
+* Elements of w remaining: 272 (99.63%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 91 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 270 (100.00%)
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 1 (0.37%)
+* Elements of w remaining: 272 (99.63%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 91 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 270 (100.00%)
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 1 (0.37%)
+* Elements of w remaining: 272 (99.63%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 91 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 270 (100.00%)
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 1 (0.37%)
+* Elements of w remaining: 272 (99.63%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 91 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 270 (100.00%)
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+  1       270         56.6          71.47         3.98          PASS      
+* Composed C_2: 540 constraints, 543 variables, 2 inputs
+Swap is not beneficial, not performing
+* QAP number of variables: 543
+* QAP pre degree: 540
+* QAP degree: 544
+* QAP number of input variables: 2
+* G1 window: 8
+* G2 window: 6
+* G1 elements in PK: 2173
+* Non-zero G1 elements in PK: 1811
+* G2 elements in PK: 545
+* Non-zero G2 elements in PK: 183
+* PK size in bits: 566600
+* G1 elements in VK: 2
+* G2 elements in VK: 2
+* GT elements in VK: 1
+* VK size in bits: 1911
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 1 (0.18%)
+* Elements of w remaining: 543 (99.82%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 182 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 541 (100.00%)
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 1 (0.18%)
+* Elements of w remaining: 543 (99.82%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 182 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 541 (100.00%)
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 1 (0.18%)
+* Elements of w remaining: 543 (99.82%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 182 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 541 (100.00%)
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 1 (0.18%)
+* Elements of w remaining: 543 (99.82%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 182 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 541 (100.00%)
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 1 (0.18%)
+* Elements of w remaining: 543 (99.82%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 182 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 541 (100.00%)
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 1 (0.18%)
+* Elements of w remaining: 543 (99.82%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 182 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 541 (100.00%)
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 1 (0.18%)
+* Elements of w remaining: 543 (99.82%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 182 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 541 (100.00%)
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 1 (0.18%)
+* Elements of w remaining: 543 (99.82%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 182 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 541 (100.00%)
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 1 (0.18%)
+* Elements of w remaining: 543 (99.82%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 182 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 541 (100.00%)
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 1 (0.18%)
+* Elements of w remaining: 543 (99.82%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 182 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 541 (100.00%)
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+  2       540         89.7          125.17        4.10          PASS      
+* Composed C_4: 1080 constraints, 1085 variables, 2 inputs
+Swap is not beneficial, not performing
+* QAP number of variables: 1085
+* QAP pre degree: 1080
+* QAP degree: 1088
+* QAP number of input variables: 2
+* G1 window: 9
+* G2 window: 7
+* G1 elements in PK: 4343
+* Non-zero G1 elements in PK: 3621
+* G2 elements in PK: 1087
+* Non-zero G2 elements in PK: 365
+* PK size in bits: 1132436
+* G1 elements in VK: 2
+* G2 elements in VK: 2
+* GT elements in VK: 1
+* VK size in bits: 1911
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 1 (0.09%)
+* Elements of w remaining: 1085 (99.91%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 364 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 1083 (100.00%)
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 1 (0.09%)
+* Elements of w remaining: 1085 (99.91%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 364 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 1083 (100.00%)
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 1 (0.09%)
+* Elements of w remaining: 1085 (99.91%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 364 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 1083 (100.00%)
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 1 (0.09%)
+* Elements of w remaining: 1085 (99.91%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 364 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 1083 (100.00%)
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 1 (0.09%)
+* Elements of w remaining: 1085 (99.91%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 364 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 1083 (100.00%)
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 1 (0.09%)
+* Elements of w remaining: 1085 (99.91%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 364 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 1083 (100.00%)
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 1 (0.09%)
+* Elements of w remaining: 1085 (99.91%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 364 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 1083 (100.00%)
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 1 (0.09%)
+* Elements of w remaining: 1085 (99.91%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 364 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 1083 (100.00%)
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 1 (0.09%)
+* Elements of w remaining: 1085 (99.91%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 364 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 1083 (100.00%)
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 1 (0.09%)
+* Elements of w remaining: 1085 (99.91%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 364 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 1083 (100.00%)
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+  4       1080        164.1         206.42        4.02          PASS      
+* Composed C_8: 2160 constraints, 2169 variables, 2 inputs
+Swap is not beneficial, not performing
+* QAP number of variables: 2169
+* QAP pre degree: 2160
+* QAP degree: 2176
+* QAP number of input variables: 2
+* G1 window: 9
+* G2 window: 7
+* G1 elements in PK: 8683
+* Non-zero G1 elements in PK: 7241
+* G2 elements in PK: 2171
+* Non-zero G2 elements in PK: 729
+* PK size in bits: 2264108
+* G1 elements in VK: 2
+* G2 elements in VK: 2
+* GT elements in VK: 1
+* VK size in bits: 1911
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 1 (0.05%)
+* Elements of w remaining: 2169 (99.95%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 728 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 2167 (100.00%)
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 1 (0.05%)
+* Elements of w remaining: 2169 (99.95%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 728 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 2167 (100.00%)
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 1 (0.05%)
+* Elements of w remaining: 2169 (99.95%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 728 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 2167 (100.00%)
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 1 (0.05%)
+* Elements of w remaining: 2169 (99.95%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 728 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 2167 (100.00%)
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 1 (0.05%)
+* Elements of w remaining: 2169 (99.95%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 728 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 2167 (100.00%)
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 1 (0.05%)
+* Elements of w remaining: 2169 (99.95%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 728 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 2167 (100.00%)
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 1 (0.05%)
+* Elements of w remaining: 2169 (99.95%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 728 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 2167 (100.00%)
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 1 (0.05%)
+* Elements of w remaining: 2169 (99.95%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 728 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 2167 (100.00%)
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 1 (0.05%)
+* Elements of w remaining: 2169 (99.95%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 728 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 2167 (100.00%)
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 1 (0.05%)
+* Elements of w remaining: 2169 (99.95%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 728 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 2167 (100.00%)
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+  8       2160        277.2         340.06        4.14          PASS      
+* Composed C_16: 4320 constraints, 4337 variables, 2 inputs
+Swap is not beneficial, not performing
+* QAP number of variables: 4337
+* QAP pre degree: 4320
+* QAP degree: 4352
+* QAP number of input variables: 2
+* G1 window: 11
+* G2 window: 8
+* G1 elements in PK: 17363
+* Non-zero G1 elements in PK: 14481
+* G2 elements in PK: 4339
+* Non-zero G2 elements in PK: 1457
+* PK size in bits: 4527452
+* G1 elements in VK: 2
+* G2 elements in VK: 2
+* GT elements in VK: 1
+* VK size in bits: 1911
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 1 (0.02%)
+* Elements of w remaining: 4337 (99.98%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 1456 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 4335 (100.00%)
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 1 (0.02%)
+* Elements of w remaining: 4337 (99.98%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 1456 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 4335 (100.00%)
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 1 (0.02%)
+* Elements of w remaining: 4337 (99.98%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 1456 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 4335 (100.00%)
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 1 (0.02%)
+* Elements of w remaining: 4337 (99.98%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 1456 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 4335 (100.00%)
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 1 (0.02%)
+* Elements of w remaining: 4337 (99.98%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 1456 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 4335 (100.00%)
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 1 (0.02%)
+* Elements of w remaining: 4337 (99.98%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 1456 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 4335 (100.00%)
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 1 (0.02%)
+* Elements of w remaining: 4337 (99.98%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 1456 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 4335 (100.00%)
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 1 (0.02%)
+* Elements of w remaining: 4337 (99.98%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 1456 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 4335 (100.00%)
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 1 (0.02%)
+* Elements of w remaining: 4337 (99.98%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 1456 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 4335 (100.00%)
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 1 (0.02%)
+* Elements of w remaining: 4337 (99.98%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 1456 (100.00%)
+* Elements of w skipped: 0 (0.00%)
+* Elements of w processed with special addition: 0 (0.00%)
+* Elements of w remaining: 4335 (100.00%)
+* G1 elements in proof: 2
+* G2 elements in proof: 1
+* Proof size in bits: 1019
+  16      4320        507.4         616.68        3.97          PASS      
+
+  Groth16 results written to /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/results/2026-03-06_151947_paper/csv/groth16_results.csv
+
+================================================================
+All benchmarks complete.
+================================================================
+  Done in 29s
+
+------------------------------------------------------------
+  Running: [2/18] mimc n=270 B=64
+  Command: bench_comparative --circuit mimc --n 270 --B 64 --output-dir /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/results/2026-03-06_151947_paper/csv --reps 10
+------------------------------------------------------------

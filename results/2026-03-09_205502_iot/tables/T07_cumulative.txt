@@ -1,0 +1,15 @@
+
+====================================================================================
+  Cumulative Total Time (seconds) — setup + all proving steps
+====================================================================================
+      Circuit  n     B  UVC total(s)  G16 total(s)  Nova total(s)  UVC/G16  UVC/Nova
+-------------  -  ----  ------------  ------------  -------------  -------  --------
+Sensor fusion  4    64           1.1           5.0            3.4    0.22x     0.32x
+Sensor fusion  4   256          10.8          57.6            9.7    0.19x     1.12x
+Sensor fusion  4  1024         125.7         726.4           34.7    0.17x     3.63x
+Sensor fusion  6    64           1.3           6.2            3.5    0.21x     0.37x
+Sensor fusion  6   256          13.0          75.1            9.9    0.17x     1.32x
+Sensor fusion  6  1024         155.2         958.3           35.5    0.16x     4.37x
+Sensor fusion  8    64           1.8           7.9            3.4    0.23x     0.53x
+Sensor fusion  8   256          16.4          93.1            9.7    0.18x     1.68x
+Sensor fusion  8  1024         207.2        1218.7           35.1    0.17x     5.90x

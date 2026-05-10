@@ -1,0 +1,379 @@
+============================================================
+  UVC Benchmark Suite
+  Mon Mar  9 19:56:19 KST 2026
+  Mode: all
+  Tag:  paper
+  Reps: 10
+  Output: /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/results/2026-03-09_195619_paper
+============================================================
+
+Date:     2026-03-09T10:56:19Z
+Hostname: GoM-Mac-Studio-M4.local
+OS:       Darwin 25.3.0 arm64
+CPU:      Apple M4 Max
+Cores:    14
+RAM:      36 GB
+Compiler: Apple clang version 17.0.0 (clang-1700.6.4.2)
+Build:    Release -O2 -march=native
+Reps:     10
+Configs:  18 C++ + 9 Nova
+
+  Building all benchmarks...
+[ 51%] Built target ff
+[ 96%] Built target snark
+[ 96%] Building CXX object CMakeFiles/bench_comparative.dir/src/libsnark/zk_proof_systems/ppzksnark/r1cs_uvc_ppzksnark/benchmarks/bench_comparative.cpp.o
+In file included from /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/src/libsnark/zk_proof_systems/ppzksnark/r1cs_uvc_ppzksnark/benchmarks/bench_comparative.cpp:28:
+In file included from /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/src/libsnark/zk_proof_systems/ppzksnark/r1cs_uvc_ppzksnark/r1cs_uvc_ppzksnark.hpp:38:
+In file included from /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/src/libsnark/common/data_structures/accumulation_vector.hpp:17:
+In file included from /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/src/libsnark/common/data_structures/sparse_vector.hpp:78:
+In file included from /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/src/libsnark/common/data_structures/sparse_vector.tcc:23:
+In file included from /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/depends/libff/libff/algebra/scalar_multiplication/multiexp.hpp:131:
+/Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/depends/libff/libff/algebra/scalar_multiplication/multiexp.tcc:126:50: warning: unused parameter 'scalar_end' [-Wunused-parameter]
+  126 |     typename std::vector<FieldT>::const_iterator scalar_end)
+      |                                                  ^
+/Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/depends/libff/libff/algebra/scalar_multiplication/multiexp.tcc:149:50: warning: unused parameter 'scalar_end' [-Wunused-parameter]
+  149 |     typename std::vector<FieldT>::const_iterator scalar_end)
+      |                                                  ^
+In file included from /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/src/libsnark/zk_proof_systems/ppzksnark/r1cs_uvc_ppzksnark/benchmarks/bench_comparative.cpp:28:
+In file included from /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/src/libsnark/zk_proof_systems/ppzksnark/r1cs_uvc_ppzksnark/r1cs_uvc_ppzksnark.hpp:40:
+In file included from /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/src/libsnark/relations/constraint_satisfaction_problems/r1cs/r1cs.hpp:151:
+/Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/src/libsnark/relations/constraint_satisfaction_problems/r1cs/r1cs.tcc:173:106: warning: unused parameter 'annotation' [-Wunused-parameter]
+  173 | void r1cs_constraint_system<FieldT>::add_constraint(const r1cs_constraint<FieldT> &c, const std::string &annotation)
+      |                                                                                                          ^
+In file included from /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/src/libsnark/zk_proof_systems/ppzksnark/r1cs_uvc_ppzksnark/benchmarks/bench_comparative.cpp:28:
+In file included from /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/src/libsnark/zk_proof_systems/ppzksnark/r1cs_uvc_ppzksnark/r1cs_uvc_ppzksnark.hpp:277:
+/Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/src/libsnark/zk_proof_systems/ppzksnark/r1cs_uvc_ppzksnark/r1cs_uvc_ppzksnark.tcc:451:18: warning: unused variable 'ts' [-Wunused-variable]
+  451 |     const size_t ts = pk.st_circuit.transition_size;
+      |                  ^~
+In file included from /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/src/libsnark/zk_proof_systems/ppzksnark/r1cs_uvc_ppzksnark/benchmarks/bench_comparative.cpp:21:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/string:652:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/string_view:947:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm:1854:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/for_each.h:16:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__ranges/movable_box.h:21:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/optional:1302:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/memory:947:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/inout_ptr.h:16:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/shared_ptr.h:35:
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:78:5: warning: delete called on non-final 'libfqfft::basic_radix2_domain<libff::Fp_model<4, libff::alt_bn128_modulus_r>>' that has virtual functions but non-virtual destructor [-Wdelete-non-abstract-non-virtual-dtor]
+   78 |     delete __ptr;
+      |     ^
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:300:7: note: in instantiation of member function 'std::default_delete<libfqfft::basic_radix2_domain<libff::Fp_model<4, libff::alt_bn128_modulus_r>>>::operator()' requested here
+  300 |       __deleter_(__tmp);
+      |       ^
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:269:71: note: in instantiation of member function 'std::unique_ptr<libfqfft::basic_radix2_domain<libff::Fp_model<4, libff::alt_bn128_modulus_r>>>::reset' requested here
+  269 |   _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX23 ~unique_ptr() { reset(); }
+      |                                                                       ^
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/shared_ptr.h:342:21: note: in instantiation of member function 'std::unique_ptr<libfqfft::basic_radix2_domain<libff::Fp_model<4, libff::alt_bn128_modulus_r>>>::~unique_ptr' requested here
+  342 |     unique_ptr<_Yp> __hold(__p);
+      |                     ^
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/shared_ptr.h:612:5: note: in instantiation of function template specialization 'std::shared_ptr<libfqfft::evaluation_domain<libff::Fp_model<4, libff::alt_bn128_modulus_r>>>::shared_ptr<libfqfft::basic_radix2_domain<libff::Fp_model<4, libff::alt_bn128_modulus_r>>, 0>' requested here
+  612 |     shared_ptr(__p).swap(*this);
+      |     ^
+/Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/depends/libfqfft/libfqfft/evaluation_domain/get_evaluation_domain.tcc:41:18: note: in instantiation of function template specialization 'std::shared_ptr<libfqfft::evaluation_domain<libff::Fp_model<4, libff::alt_bn128_modulus_r>>>::reset<libfqfft::basic_radix2_domain<libff::Fp_model<4, libff::alt_bn128_modulus_r>>, 0>' requested here
+   41 |     try { result.reset(new basic_radix2_domain<FieldT>(min_size)); }
+      |                  ^
+/Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/src/libsnark/reductions/r1cs_to_qap/r1cs_to_qap.tcc:110:84: note: in instantiation of function template specialization 'libfqfft::get_evaluation_domain<libff::Fp_model<4, libff::alt_bn128_modulus_r>>' requested here
+  110 |     const std::shared_ptr<libfqfft::evaluation_domain<FieldT> > domain = libfqfft::get_evaluation_domain<FieldT>(cs.num_constraints() + cs.num_inputs() + 1);
+      |                                                                                    ^
+/Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/src/libsnark/zk_proof_systems/ppzksnark/r1cs_uvc_ppzksnark/r1cs_uvc_ppzksnark.tcc:240:45: note: in instantiation of function template specialization 'libsnark::r1cs_to_qap_instance_map_with_evaluation<libff::Fp_model<4, libff::alt_bn128_modulus_r>>' requested here
+  240 |     qap_instance_evaluation<FieldT> qap_B = r1cs_to_qap_instance_map_with_evaluation(cs_B, t);
+      |                                             ^
+/Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/src/libsnark/zk_proof_systems/ppzksnark/r1cs_uvc_ppzksnark/benchmarks/bench_comparative.cpp:150:15: note: in instantiation of function template specialization 'libsnark::r1cs_uvc_ppzksnark_generator<libff::alt_bn128_pp>' requested here
+  150 |     auto kp = r1cs_uvc_ppzksnark_generator<ppT>(st, cfg.B);
+      |               ^
+In file included from /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/src/libsnark/zk_proof_systems/ppzksnark/r1cs_uvc_ppzksnark/benchmarks/bench_comparative.cpp:21:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/string:652:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/string_view:947:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm:1854:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/for_each.h:16:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__ranges/movable_box.h:21:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/optional:1302:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/memory:947:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/inout_ptr.h:16:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/shared_ptr.h:35:
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:78:5: warning: delete called on non-final 'libfqfft::extended_radix2_domain<libff::Fp_model<4, libff::alt_bn128_modulus_r>>' that has virtual functions but non-virtual destructor [-Wdelete-non-abstract-non-virtual-dtor]
+   78 |     delete __ptr;
+      |     ^
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:300:7: note: in instantiation of member function 'std::default_delete<libfqfft::extended_radix2_domain<libff::Fp_model<4, libff::alt_bn128_modulus_r>>>::operator()' requested here
+  300 |       __deleter_(__tmp);
+      |       ^
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:269:71: note: in instantiation of member function 'std::unique_ptr<libfqfft::extended_radix2_domain<libff::Fp_model<4, libff::alt_bn128_modulus_r>>>::reset' requested here
+  269 |   _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX23 ~unique_ptr() { reset(); }
+      |                                                                       ^
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/shared_ptr.h:342:21: note: in instantiation of member function 'std::unique_ptr<libfqfft::extended_radix2_domain<libff::Fp_model<4, libff::alt_bn128_modulus_r>>>::~unique_ptr' requested here
+  342 |     unique_ptr<_Yp> __hold(__p);
+      |                     ^
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/shared_ptr.h:612:5: note: in instantiation of function template specialization 'std::shared_ptr<libfqfft::evaluation_domain<libff::Fp_model<4, libff::alt_bn128_modulus_r>>>::shared_ptr<libfqfft::extended_radix2_domain<libff::Fp_model<4, libff::alt_bn128_modulus_r>>, 0>' requested here
+  612 |     shared_ptr(__p).swap(*this);
+      |     ^
+/Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/depends/libfqfft/libfqfft/evaluation_domain/get_evaluation_domain.tcc:42:31: note: in instantiation of function template specialization 'std::shared_ptr<libfqfft::evaluation_domain<libff::Fp_model<4, libff::alt_bn128_modulus_r>>>::reset<libfqfft::extended_radix2_domain<libff::Fp_model<4, libff::alt_bn128_modulus_r>>, 0>' requested here
+   42 |     catch(...) { try { result.reset(new extended_radix2_domain<FieldT>(min_size)); }
+      |                               ^
+/Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/src/libsnark/reductions/r1cs_to_qap/r1cs_to_qap.tcc:110:84: note: in instantiation of function template specialization 'libfqfft::get_evaluation_domain<libff::Fp_model<4, libff::alt_bn128_modulus_r>>' requested here
+  110 |     const std::shared_ptr<libfqfft::evaluation_domain<FieldT> > domain = libfqfft::get_evaluation_domain<FieldT>(cs.num_constraints() + cs.num_inputs() + 1);
+      |                                                                                    ^
+/Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/src/libsnark/zk_proof_systems/ppzksnark/r1cs_uvc_ppzksnark/r1cs_uvc_ppzksnark.tcc:240:45: note: in instantiation of function template specialization 'libsnark::r1cs_to_qap_instance_map_with_evaluation<libff::Fp_model<4, libff::alt_bn128_modulus_r>>' requested here
+  240 |     qap_instance_evaluation<FieldT> qap_B = r1cs_to_qap_instance_map_with_evaluation(cs_B, t);
+      |                                             ^
+/Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/src/libsnark/zk_proof_systems/ppzksnark/r1cs_uvc_ppzksnark/benchmarks/bench_comparative.cpp:150:15: note: in instantiation of function template specialization 'libsnark::r1cs_uvc_ppzksnark_generator<libff::alt_bn128_pp>' requested here
+  150 |     auto kp = r1cs_uvc_ppzksnark_generator<ppT>(st, cfg.B);
+      |               ^
+In file included from /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/src/libsnark/zk_proof_systems/ppzksnark/r1cs_uvc_ppzksnark/benchmarks/bench_comparative.cpp:21:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/string:652:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/string_view:947:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm:1854:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/for_each.h:16:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__ranges/movable_box.h:21:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/optional:1302:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/memory:947:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/inout_ptr.h:16:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/shared_ptr.h:35:
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:78:5: warning: delete called on non-final 'libfqfft::step_radix2_domain<libff::Fp_model<4, libff::alt_bn128_modulus_r>>' that has virtual functions but non-virtual destructor [-Wdelete-non-abstract-non-virtual-dtor]
+   78 |     delete __ptr;
+      |     ^
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:300:7: note: in instantiation of member function 'std::default_delete<libfqfft::step_radix2_domain<libff::Fp_model<4, libff::alt_bn128_modulus_r>>>::operator()' requested here
+  300 |       __deleter_(__tmp);
+      |       ^
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:269:71: note: in instantiation of member function 'std::unique_ptr<libfqfft::step_radix2_domain<libff::Fp_model<4, libff::alt_bn128_modulus_r>>>::reset' requested here
+  269 |   _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX23 ~unique_ptr() { reset(); }
+      |                                                                       ^
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/shared_ptr.h:342:21: note: in instantiation of member function 'std::unique_ptr<libfqfft::step_radix2_domain<libff::Fp_model<4, libff::alt_bn128_modulus_r>>>::~unique_ptr' requested here
+  342 |     unique_ptr<_Yp> __hold(__p);
+      |                     ^
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/shared_ptr.h:612:5: note: in instantiation of function template specialization 'std::shared_ptr<libfqfft::evaluation_domain<libff::Fp_model<4, libff::alt_bn128_modulus_r>>>::shared_ptr<libfqfft::step_radix2_domain<libff::Fp_model<4, libff::alt_bn128_modulus_r>>, 0>' requested here
+  612 |     shared_ptr(__p).swap(*this);
+      |     ^
+/Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/depends/libfqfft/libfqfft/evaluation_domain/get_evaluation_domain.tcc:43:31: note: in instantiation of function template specialization 'std::shared_ptr<libfqfft::evaluation_domain<libff::Fp_model<4, libff::alt_bn128_modulus_r>>>::reset<libfqfft::step_radix2_domain<libff::Fp_model<4, libff::alt_bn128_modulus_r>>, 0>' requested here
+   43 |     catch(...) { try { result.reset(new step_radix2_domain<FieldT>(min_size)); }
+      |                               ^
+/Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/src/libsnark/reductions/r1cs_to_qap/r1cs_to_qap.tcc:110:84: note: in instantiation of function template specialization 'libfqfft::get_evaluation_domain<libff::Fp_model<4, libff::alt_bn128_modulus_r>>' requested here
+  110 |     const std::shared_ptr<libfqfft::evaluation_domain<FieldT> > domain = libfqfft::get_evaluation_domain<FieldT>(cs.num_constraints() + cs.num_inputs() + 1);
+      |                                                                                    ^
+/Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/src/libsnark/zk_proof_systems/ppzksnark/r1cs_uvc_ppzksnark/r1cs_uvc_ppzksnark.tcc:240:45: note: in instantiation of function template specialization 'libsnark::r1cs_to_qap_instance_map_with_evaluation<libff::Fp_model<4, libff::alt_bn128_modulus_r>>' requested here
+  240 |     qap_instance_evaluation<FieldT> qap_B = r1cs_to_qap_instance_map_with_evaluation(cs_B, t);
+      |                                             ^
+/Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/src/libsnark/zk_proof_systems/ppzksnark/r1cs_uvc_ppzksnark/benchmarks/bench_comparative.cpp:150:15: note: in instantiation of function template specialization 'libsnark::r1cs_uvc_ppzksnark_generator<libff::alt_bn128_pp>' requested here
+  150 |     auto kp = r1cs_uvc_ppzksnark_generator<ppT>(st, cfg.B);
+      |               ^
+In file included from /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/src/libsnark/zk_proof_systems/ppzksnark/r1cs_uvc_ppzksnark/benchmarks/bench_comparative.cpp:28:
+In file included from /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/src/libsnark/zk_proof_systems/ppzksnark/r1cs_uvc_ppzksnark/r1cs_uvc_ppzksnark.hpp:42:
+In file included from /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/src/libsnark/zk_proof_systems/ppzksnark/r1cs_vc_ppzksnark/r1cs_vc_ppzksnark.hpp:354:
+In file included from /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/src/libsnark/zk_proof_systems/ppzksnark/r1cs_vc_ppzksnark/r1cs_vc_ppzksnark.tcc:32:
+In file included from /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/src/libsnark/reductions/r1cs_to_qap/r1cs_to_qap.hpp:68:
+In file included from /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/src/libsnark/reductions/r1cs_to_qap/r1cs_to_qap.tcc:19:
+In file included from /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/depends/libfqfft/libfqfft/evaluation_domain/get_evaluation_domain.hpp:30:
+In file included from /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/depends/libfqfft/libfqfft/evaluation_domain/get_evaluation_domain.tcc:22:
+In file included from /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/depends/libfqfft/libfqfft/evaluation_domain/domains/arithmetic_sequence_domain.hpp:47:
+In file included from /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/depends/libfqfft/libfqfft/evaluation_domain/domains/arithmetic_sequence_domain.tcc:18:
+In file included from /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/depends/libfqfft/libfqfft/polynomial_arithmetic/basis_change.hpp:67:
+In file included from /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/depends/libfqfft/libfqfft/polynomial_arithmetic/basis_change.tcc:20:
+In file included from /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/depends/libfqfft/libfqfft/polynomial_arithmetic/basic_operations.hpp:90:
+/Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/depends/libfqfft/libfqfft/polynomial_arithmetic/basic_operations.tcc:151:56: warning: 'bind1st<std::multiplies<libff::Fp_model<4, libff::alt_bn128_modulus_r>>, libff::Fp_model<4, libff::alt_bn128_modulus_r>>' is deprecated [-Wdeprecated-declarations]
+  151 |     std::transform(c.begin(), c.end(), c.begin(), std::bind1st(std::multiplies<FieldT>(), sconst));
+      |                                                        ^
+/Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/depends/libfqfft/libfqfft/polynomial_arithmetic/basic_operations.tcc:119:5: note: in instantiation of function template specialization 'libfqfft::_polynomial_multiplication_on_fft<libff::Fp_model<4, libff::alt_bn128_modulus_r>>' requested here
+  119 |     _polynomial_multiplication_on_fft(c, a, b);
+      |     ^
+/Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/depends/libfqfft/libfqfft/evaluation_domain/domains/geometric_sequence_domain.tcc:58:3: note: in instantiation of function template specialization 'libfqfft::_polynomial_multiplication<libff::Fp_model<4, libff::alt_bn128_modulus_r>>' requested here
+   58 |   _polynomial_multiplication(a, g, T);
+      |   ^
+/Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/depends/libfqfft/libfqfft/evaluation_domain/domains/geometric_sequence_domain.tcc:27:36: note: in instantiation of member function 'libfqfft::geometric_sequence_domain<libff::Fp_model<4, libff::alt_bn128_modulus_r>>::FFT' requested here
+   27 | geometric_sequence_domain<FieldT>::geometric_sequence_domain(const size_t m) : evaluation_domain<FieldT>(m)
+      |                                    ^
+/Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/depends/libfqfft/libfqfft/evaluation_domain/get_evaluation_domain.tcc:47:41: note: in instantiation of member function 'libfqfft::geometric_sequence_domain<libff::Fp_model<4, libff::alt_bn128_modulus_r>>::geometric_sequence_domain' requested here
+   47 |     catch(...) { try { result.reset(new geometric_sequence_domain<FieldT>(min_size)); }
+      |                                         ^
+/Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/src/libsnark/reductions/r1cs_to_qap/r1cs_to_qap.tcc:110:84: note: in instantiation of function template specialization 'libfqfft::get_evaluation_domain<libff::Fp_model<4, libff::alt_bn128_modulus_r>>' requested here
+  110 |     const std::shared_ptr<libfqfft::evaluation_domain<FieldT> > domain = libfqfft::get_evaluation_domain<FieldT>(cs.num_constraints() + cs.num_inputs() + 1);
+      |                                                                                    ^
+/Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/src/libsnark/zk_proof_systems/ppzksnark/r1cs_uvc_ppzksnark/r1cs_uvc_ppzksnark.tcc:240:45: note: in instantiation of function template specialization 'libsnark::r1cs_to_qap_instance_map_with_evaluation<libff::Fp_model<4, libff::alt_bn128_modulus_r>>' requested here
+  240 |     qap_instance_evaluation<FieldT> qap_B = r1cs_to_qap_instance_map_with_evaluation(cs_B, t);
+      |                                             ^
+/Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/src/libsnark/zk_proof_systems/ppzksnark/r1cs_uvc_ppzksnark/benchmarks/bench_comparative.cpp:150:15: note: in instantiation of function template specialization 'libsnark::r1cs_uvc_ppzksnark_generator<libff::alt_bn128_pp>' requested here
+  150 |     auto kp = r1cs_uvc_ppzksnark_generator<ppT>(st, cfg.B);
+      |               ^
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__functional/binder1st.h:45:1: note: 'bind1st<std::multiplies<libff::Fp_model<4, libff::alt_bn128_modulus_r>>, libff::Fp_model<4, libff::alt_bn128_modulus_r>>' has been explicitly marked deprecated here
+   45 | _LIBCPP_DEPRECATED_IN_CXX11 inline _LIBCPP_HIDE_FROM_ABI binder1st<_Operation>
+      | ^
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__config:725:41: note: expanded from macro '_LIBCPP_DEPRECATED_IN_CXX11'
+  725 | #    define _LIBCPP_DEPRECATED_IN_CXX11 _LIBCPP_DEPRECATED
+      |                                         ^
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__config:710:49: note: expanded from macro '_LIBCPP_DEPRECATED'
+  710 | #      define _LIBCPP_DEPRECATED __attribute__((__deprecated__))
+      |                                                 ^
+In file included from /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/src/libsnark/zk_proof_systems/ppzksnark/r1cs_uvc_ppzksnark/benchmarks/bench_comparative.cpp:21:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/string:652:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/string_view:947:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm:1854:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/for_each.h:16:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__ranges/movable_box.h:21:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/optional:1302:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/memory:947:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/inout_ptr.h:16:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/shared_ptr.h:35:
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:78:5: warning: delete called on non-final 'libfqfft::geometric_sequence_domain<libff::Fp_model<4, libff::alt_bn128_modulus_r>>' that has virtual functions but non-virtual destructor [-Wdelete-non-abstract-non-virtual-dtor]
+   78 |     delete __ptr;
+      |     ^
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:300:7: note: in instantiation of member function 'std::default_delete<libfqfft::geometric_sequence_domain<libff::Fp_model<4, libff::alt_bn128_modulus_r>>>::operator()' requested here
+  300 |       __deleter_(__tmp);
+      |       ^
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:269:71: note: in instantiation of member function 'std::unique_ptr<libfqfft::geometric_sequence_domain<libff::Fp_model<4, libff::alt_bn128_modulus_r>>>::reset' requested here
+  269 |   _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX23 ~unique_ptr() { reset(); }
+      |                                                                       ^
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/shared_ptr.h:342:21: note: in instantiation of member function 'std::unique_ptr<libfqfft::geometric_sequence_domain<libff::Fp_model<4, libff::alt_bn128_modulus_r>>>::~unique_ptr' requested here
+  342 |     unique_ptr<_Yp> __hold(__p);
+      |                     ^
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/shared_ptr.h:612:5: note: in instantiation of function template specialization 'std::shared_ptr<libfqfft::evaluation_domain<libff::Fp_model<4, libff::alt_bn128_modulus_r>>>::shared_ptr<libfqfft::geometric_sequence_domain<libff::Fp_model<4, libff::alt_bn128_modulus_r>>, 0>' requested here
+  612 |     shared_ptr(__p).swap(*this);
+      |     ^
+/Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/depends/libfqfft/libfqfft/evaluation_domain/get_evaluation_domain.tcc:47:31: note: in instantiation of function template specialization 'std::shared_ptr<libfqfft::evaluation_domain<libff::Fp_model<4, libff::alt_bn128_modulus_r>>>::reset<libfqfft::geometric_sequence_domain<libff::Fp_model<4, libff::alt_bn128_modulus_r>>, 0>' requested here
+   47 |     catch(...) { try { result.reset(new geometric_sequence_domain<FieldT>(min_size)); }
+      |                               ^
+/Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/src/libsnark/reductions/r1cs_to_qap/r1cs_to_qap.tcc:110:84: note: in instantiation of function template specialization 'libfqfft::get_evaluation_domain<libff::Fp_model<4, libff::alt_bn128_modulus_r>>' requested here
+  110 |     const std::shared_ptr<libfqfft::evaluation_domain<FieldT> > domain = libfqfft::get_evaluation_domain<FieldT>(cs.num_constraints() + cs.num_inputs() + 1);
+      |                                                                                    ^
+/Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/src/libsnark/zk_proof_systems/ppzksnark/r1cs_uvc_ppzksnark/r1cs_uvc_ppzksnark.tcc:240:45: note: in instantiation of function template specialization 'libsnark::r1cs_to_qap_instance_map_with_evaluation<libff::Fp_model<4, libff::alt_bn128_modulus_r>>' requested here
+  240 |     qap_instance_evaluation<FieldT> qap_B = r1cs_to_qap_instance_map_with_evaluation(cs_B, t);
+      |                                             ^
+/Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/src/libsnark/zk_proof_systems/ppzksnark/r1cs_uvc_ppzksnark/benchmarks/bench_comparative.cpp:150:15: note: in instantiation of function template specialization 'libsnark::r1cs_uvc_ppzksnark_generator<libff::alt_bn128_pp>' requested here
+  150 |     auto kp = r1cs_uvc_ppzksnark_generator<ppT>(st, cfg.B);
+      |               ^
+In file included from /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/src/libsnark/zk_proof_systems/ppzksnark/r1cs_uvc_ppzksnark/benchmarks/bench_comparative.cpp:28:
+In file included from /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/src/libsnark/zk_proof_systems/ppzksnark/r1cs_uvc_ppzksnark/r1cs_uvc_ppzksnark.hpp:42:
+In file included from /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/src/libsnark/zk_proof_systems/ppzksnark/r1cs_vc_ppzksnark/r1cs_vc_ppzksnark.hpp:354:
+In file included from /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/src/libsnark/zk_proof_systems/ppzksnark/r1cs_vc_ppzksnark/r1cs_vc_ppzksnark.tcc:32:
+In file included from /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/src/libsnark/reductions/r1cs_to_qap/r1cs_to_qap.hpp:68:
+In file included from /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/src/libsnark/reductions/r1cs_to_qap/r1cs_to_qap.tcc:19:
+In file included from /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/depends/libfqfft/libfqfft/evaluation_domain/get_evaluation_domain.hpp:30:
+In file included from /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/depends/libfqfft/libfqfft/evaluation_domain/get_evaluation_domain.tcc:22:
+In file included from /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/depends/libfqfft/libfqfft/evaluation_domain/domains/arithmetic_sequence_domain.hpp:47:
+In file included from /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/depends/libfqfft/libfqfft/evaluation_domain/domains/arithmetic_sequence_domain.tcc:18:
+In file included from /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/depends/libfqfft/libfqfft/polynomial_arithmetic/basis_change.hpp:67:
+In file included from /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/depends/libfqfft/libfqfft/polynomial_arithmetic/basis_change.tcc:21:
+In file included from /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/depends/libfqfft/libfqfft/polynomial_arithmetic/xgcd.hpp:29:
+/Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/depends/libfqfft/libfqfft/polynomial_arithmetic/xgcd.tcc:61:56: warning: 'bind1st<std::multiplies<libff::Fp_model<4, libff::alt_bn128_modulus_r>>, libff::Fp_model<4, libff::alt_bn128_modulus_r>>' is deprecated [-Wdeprecated-declarations]
+   61 |     std::transform(G.begin(), G.end(), G.begin(), std::bind1st(std::multiplies<FieldT>(), lead_coeff));
+      |                                                        ^
+/Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/depends/libfqfft/libfqfft/polynomial_arithmetic/basis_change.tcc:78:5: note: in instantiation of function template specialization 'libfqfft::_polynomial_xgcd<libff::Fp_model<4, libff::alt_bn128_modulus_r>>' requested here
+   78 |     _polynomial_xgcd(mod, I, mod, mod, I);
+      |     ^
+/Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/depends/libfqfft/libfqfft/evaluation_domain/domains/arithmetic_sequence_domain.tcc:44:3: note: in instantiation of function template specialization 'libfqfft::monomial_to_newton_basis<libff::Fp_model<4, libff::alt_bn128_modulus_r>>' requested here
+   44 |   monomial_to_newton_basis(a, this->subproduct_tree, this->m);
+      |   ^
+/Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/depends/libfqfft/libfqfft/evaluation_domain/domains/arithmetic_sequence_domain.tcc:27:37: note: in instantiation of member function 'libfqfft::arithmetic_sequence_domain<libff::Fp_model<4, libff::alt_bn128_modulus_r>>::FFT' requested here
+   27 | arithmetic_sequence_domain<FieldT>::arithmetic_sequence_domain(const size_t m) : evaluation_domain<FieldT>(m)
+      |                                     ^
+/Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/depends/libfqfft/libfqfft/evaluation_domain/get_evaluation_domain.tcc:48:41: note: in instantiation of member function 'libfqfft::arithmetic_sequence_domain<libff::Fp_model<4, libff::alt_bn128_modulus_r>>::arithmetic_sequence_domain' requested here
+   48 |     catch(...) { try { result.reset(new arithmetic_sequence_domain<FieldT>(min_size)); }
+      |                                         ^
+/Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/src/libsnark/reductions/r1cs_to_qap/r1cs_to_qap.tcc:110:84: note: in instantiation of function template specialization 'libfqfft::get_evaluation_domain<libff::Fp_model<4, libff::alt_bn128_modulus_r>>' requested here
+  110 |     const std::shared_ptr<libfqfft::evaluation_domain<FieldT> > domain = libfqfft::get_evaluation_domain<FieldT>(cs.num_constraints() + cs.num_inputs() + 1);
+      |                                                                                    ^
+/Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/src/libsnark/zk_proof_systems/ppzksnark/r1cs_uvc_ppzksnark/r1cs_uvc_ppzksnark.tcc:240:45: note: in instantiation of function template specialization 'libsnark::r1cs_to_qap_instance_map_with_evaluation<libff::Fp_model<4, libff::alt_bn128_modulus_r>>' requested here
+  240 |     qap_instance_evaluation<FieldT> qap_B = r1cs_to_qap_instance_map_with_evaluation(cs_B, t);
+      |                                             ^
+/Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/src/libsnark/zk_proof_systems/ppzksnark/r1cs_uvc_ppzksnark/benchmarks/bench_comparative.cpp:150:15: note: in instantiation of function template specialization 'libsnark::r1cs_uvc_ppzksnark_generator<libff::alt_bn128_pp>' requested here
+  150 |     auto kp = r1cs_uvc_ppzksnark_generator<ppT>(st, cfg.B);
+      |               ^
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__functional/binder1st.h:45:1: note: 'bind1st<std::multiplies<libff::Fp_model<4, libff::alt_bn128_modulus_r>>, libff::Fp_model<4, libff::alt_bn128_modulus_r>>' has been explicitly marked deprecated here
+   45 | _LIBCPP_DEPRECATED_IN_CXX11 inline _LIBCPP_HIDE_FROM_ABI binder1st<_Operation>
+      | ^
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__config:725:41: note: expanded from macro '_LIBCPP_DEPRECATED_IN_CXX11'
+  725 | #    define _LIBCPP_DEPRECATED_IN_CXX11 _LIBCPP_DEPRECATED
+      |                                         ^
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__config:710:49: note: expanded from macro '_LIBCPP_DEPRECATED'
+  710 | #      define _LIBCPP_DEPRECATED __attribute__((__deprecated__))
+      |                                                 ^
+In file included from /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/src/libsnark/zk_proof_systems/ppzksnark/r1cs_uvc_ppzksnark/benchmarks/bench_comparative.cpp:28:
+In file included from /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/src/libsnark/zk_proof_systems/ppzksnark/r1cs_uvc_ppzksnark/r1cs_uvc_ppzksnark.hpp:42:
+In file included from /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/src/libsnark/zk_proof_systems/ppzksnark/r1cs_vc_ppzksnark/r1cs_vc_ppzksnark.hpp:354:
+In file included from /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/src/libsnark/zk_proof_systems/ppzksnark/r1cs_vc_ppzksnark/r1cs_vc_ppzksnark.tcc:32:
+In file included from /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/src/libsnark/reductions/r1cs_to_qap/r1cs_to_qap.hpp:68:
+In file included from /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/src/libsnark/reductions/r1cs_to_qap/r1cs_to_qap.tcc:19:
+In file included from /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/depends/libfqfft/libfqfft/evaluation_domain/get_evaluation_domain.hpp:30:
+In file included from /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/depends/libfqfft/libfqfft/evaluation_domain/get_evaluation_domain.tcc:22:
+In file included from /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/depends/libfqfft/libfqfft/evaluation_domain/domains/arithmetic_sequence_domain.hpp:47:
+In file included from /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/depends/libfqfft/libfqfft/evaluation_domain/domains/arithmetic_sequence_domain.tcc:18:
+In file included from /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/depends/libfqfft/libfqfft/polynomial_arithmetic/basis_change.hpp:67:
+In file included from /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/depends/libfqfft/libfqfft/polynomial_arithmetic/basis_change.tcc:21:
+In file included from /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/depends/libfqfft/libfqfft/polynomial_arithmetic/xgcd.hpp:29:
+/Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/depends/libfqfft/libfqfft/polynomial_arithmetic/xgcd.tcc:62:56: warning: 'bind1st<std::multiplies<libff::Fp_model<4, libff::alt_bn128_modulus_r>>, libff::Fp_model<4, libff::alt_bn128_modulus_r>>' is deprecated [-Wdeprecated-declarations]
+   62 |     std::transform(U.begin(), U.end(), U.begin(), std::bind1st(std::multiplies<FieldT>(), lead_coeff));
+      |                                                        ^
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__functional/binder1st.h:45:1: note: 'bind1st<std::multiplies<libff::Fp_model<4, libff::alt_bn128_modulus_r>>, libff::Fp_model<4, libff::alt_bn128_modulus_r>>' has been explicitly marked deprecated here
+   45 | _LIBCPP_DEPRECATED_IN_CXX11 inline _LIBCPP_HIDE_FROM_ABI binder1st<_Operation>
+      | ^
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__config:725:41: note: expanded from macro '_LIBCPP_DEPRECATED_IN_CXX11'
+  725 | #    define _LIBCPP_DEPRECATED_IN_CXX11 _LIBCPP_DEPRECATED
+      |                                         ^
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__config:710:49: note: expanded from macro '_LIBCPP_DEPRECATED'
+  710 | #      define _LIBCPP_DEPRECATED __attribute__((__deprecated__))
+      |                                                 ^
+In file included from /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/src/libsnark/zk_proof_systems/ppzksnark/r1cs_uvc_ppzksnark/benchmarks/bench_comparative.cpp:28:
+In file included from /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/src/libsnark/zk_proof_systems/ppzksnark/r1cs_uvc_ppzksnark/r1cs_uvc_ppzksnark.hpp:42:
+In file included from /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/src/libsnark/zk_proof_systems/ppzksnark/r1cs_vc_ppzksnark/r1cs_vc_ppzksnark.hpp:354:
+In file included from /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/src/libsnark/zk_proof_systems/ppzksnark/r1cs_vc_ppzksnark/r1cs_vc_ppzksnark.tcc:32:
+In file included from /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/src/libsnark/reductions/r1cs_to_qap/r1cs_to_qap.hpp:68:
+In file included from /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/src/libsnark/reductions/r1cs_to_qap/r1cs_to_qap.tcc:19:
+In file included from /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/depends/libfqfft/libfqfft/evaluation_domain/get_evaluation_domain.hpp:30:
+In file included from /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/depends/libfqfft/libfqfft/evaluation_domain/get_evaluation_domain.tcc:22:
+In file included from /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/depends/libfqfft/libfqfft/evaluation_domain/domains/arithmetic_sequence_domain.hpp:47:
+In file included from /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/depends/libfqfft/libfqfft/evaluation_domain/domains/arithmetic_sequence_domain.tcc:18:
+In file included from /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/depends/libfqfft/libfqfft/polynomial_arithmetic/basis_change.hpp:67:
+In file included from /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/depends/libfqfft/libfqfft/polynomial_arithmetic/basis_change.tcc:21:
+In file included from /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/depends/libfqfft/libfqfft/polynomial_arithmetic/xgcd.hpp:29:
+/Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/depends/libfqfft/libfqfft/polynomial_arithmetic/xgcd.tcc:63:59: warning: 'bind1st<std::multiplies<libff::Fp_model<4, libff::alt_bn128_modulus_r>>, libff::Fp_model<4, libff::alt_bn128_modulus_r>>' is deprecated [-Wdeprecated-declarations]
+   63 |     std::transform(V1.begin(), V1.end(), V1.begin(), std::bind1st(std::multiplies<FieldT>(), lead_coeff));
+      |                                                           ^
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__functional/binder1st.h:45:1: note: 'bind1st<std::multiplies<libff::Fp_model<4, libff::alt_bn128_modulus_r>>, libff::Fp_model<4, libff::alt_bn128_modulus_r>>' has been explicitly marked deprecated here
+   45 | _LIBCPP_DEPRECATED_IN_CXX11 inline _LIBCPP_HIDE_FROM_ABI binder1st<_Operation>
+      | ^
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__config:725:41: note: expanded from macro '_LIBCPP_DEPRECATED_IN_CXX11'
+  725 | #    define _LIBCPP_DEPRECATED_IN_CXX11 _LIBCPP_DEPRECATED
+      |                                         ^
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__config:710:49: note: expanded from macro '_LIBCPP_DEPRECATED'
+  710 | #      define _LIBCPP_DEPRECATED __attribute__((__deprecated__))
+      |                                                 ^
+In file included from /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/src/libsnark/zk_proof_systems/ppzksnark/r1cs_uvc_ppzksnark/benchmarks/bench_comparative.cpp:21:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/string:652:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/string_view:947:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm:1854:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/for_each.h:16:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__ranges/movable_box.h:21:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/optional:1302:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/memory:947:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/inout_ptr.h:16:
+In file included from /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/shared_ptr.h:35:
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:78:5: warning: delete called on non-final 'libfqfft::arithmetic_sequence_domain<libff::Fp_model<4, libff::alt_bn128_modulus_r>>' that has virtual functions but non-virtual destructor [-Wdelete-non-abstract-non-virtual-dtor]
+   78 |     delete __ptr;
+      |     ^
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:300:7: note: in instantiation of member function 'std::default_delete<libfqfft::arithmetic_sequence_domain<libff::Fp_model<4, libff::alt_bn128_modulus_r>>>::operator()' requested here
+  300 |       __deleter_(__tmp);
+      |       ^
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_ptr.h:269:71: note: in instantiation of member function 'std::unique_ptr<libfqfft::arithmetic_sequence_domain<libff::Fp_model<4, libff::alt_bn128_modulus_r>>>::reset' requested here
+  269 |   _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_SINCE_CXX23 ~unique_ptr() { reset(); }
+      |                                                                       ^
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/shared_ptr.h:342:21: note: in instantiation of member function 'std::unique_ptr<libfqfft::arithmetic_sequence_domain<libff::Fp_model<4, libff::alt_bn128_modulus_r>>>::~unique_ptr' requested here
+  342 |     unique_ptr<_Yp> __hold(__p);
+      |                     ^
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/shared_ptr.h:612:5: note: in instantiation of function template specialization 'std::shared_ptr<libfqfft::evaluation_domain<libff::Fp_model<4, libff::alt_bn128_modulus_r>>>::shared_ptr<libfqfft::arithmetic_sequence_domain<libff::Fp_model<4, libff::alt_bn128_modulus_r>>, 0>' requested here
+  612 |     shared_ptr(__p).swap(*this);
+      |     ^
+/Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/depends/libfqfft/libfqfft/evaluation_domain/get_evaluation_domain.tcc:48:31: note: in instantiation of function template specialization 'std::shared_ptr<libfqfft::evaluation_domain<libff::Fp_model<4, libff::alt_bn128_modulus_r>>>::reset<libfqfft::arithmetic_sequence_domain<libff::Fp_model<4, libff::alt_bn128_modulus_r>>, 0>' requested here
+   48 |     catch(...) { try { result.reset(new arithmetic_sequence_domain<FieldT>(min_size)); }
+      |                               ^
+/Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/src/libsnark/reductions/r1cs_to_qap/r1cs_to_qap.tcc:110:84: note: in instantiation of function template specialization 'libfqfft::get_evaluation_domain<libff::Fp_model<4, libff::alt_bn128_modulus_r>>' requested here
+  110 |     const std::shared_ptr<libfqfft::evaluation_domain<FieldT> > domain = libfqfft::get_evaluation_domain<FieldT>(cs.num_constraints() + cs.num_inputs() + 1);
+      |                                                                                    ^
+/Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/src/libsnark/zk_proof_systems/ppzksnark/r1cs_uvc_ppzksnark/r1cs_uvc_ppzksnark.tcc:240:45: note: in instantiation of function template specialization 'libsnark::r1cs_to_qap_instance_map_with_evaluation<libff::Fp_model<4, libff::alt_bn128_modulus_r>>' requested here
+  240 |     qap_instance_evaluation<FieldT> qap_B = r1cs_to_qap_instance_map_with_evaluation(cs_B, t);
+      |                                             ^
+/Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/src/libsnark/zk_proof_systems/ppzksnark/r1cs_uvc_ppzksnark/benchmarks/bench_comparative.cpp:150:15: note: in instantiation of function template specialization 'libsnark::r1cs_uvc_ppzksnark_generator<libff::alt_bn128_pp>' requested here
+  150 |     auto kp = r1cs_uvc_ppzksnark_generator<ppT>(st, cfg.B);
+      |               ^
+13 warnings generated.
+[100%] Linking CXX executable bench_comparative
+[100%] Built target bench_comparative
+  C++ binary: /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/build/bench_comparative
+./run_benchmarks.sh: line 201: cargo: command not found

@@ -1,0 +1,111 @@
+#!/usr/bin/env python3
+"""
+Merge UVC, Groth16, and Nova benchmark results into a combined CSV.
+
+Usage:
+    python merge_results.py --input-dir ../csv --output combined_results.csv
+"""
+
+import argparse
+import csv
+import os
+import sys
+from collections import defaultdict
+
+
+def read_csv(filepath):
+    """Read a CSV file and return list of dicts."""
+    if not os.path.exists(filepath):
+        print(f"  Warning: {filepath} not found, skipping.")
+        return []
+    with open(filepath, 'r') as f:
+        reader = csv.DictReader(f)
+        return list(reader)
+
+
+def dedup_groth16(rows):
+    """Deduplicate Groth16 rows: keep first occurrence per (circuit, n, step)."""
+    seen = {}
+    for r in rows:
+        key = (r['circuit'], r['n'], r['step'])
+        if key not in seen:
+            seen[key] = r
+    return list(seen.values())
+
+
+def merge_results(input_dir, output_path):
+    """Merge results from all three systems."""
+    uvc_rows = read_csv(os.path.join(input_dir, 'uvc_results.csv'))
+    g16_rows = read_csv(os.path.join(input_dir, 'groth16_results.csv'))
+    nova_rows = read_csv(os.path.join(input_dir, 'nova_results.csv'))
+
+    # Deduplicate Groth16 (same circuit run under different B values produces dupes)
+    g16_rows = dedup_groth16(g16_rows)
+
+    # UVC keyed by (circuit, n, B, step) — B is part of the key
+    uvc_by_key = {}
+    for r in uvc_rows:
+        key = (r['circuit'], r['n'], r['B'], r['step'])
+        uvc_by_key[key] = r
+
+    # Groth16 keyed by (circuit, n, step)
+    g16_by_key = {}
+    for r in g16_rows:
+        key = (r['circuit'], r['n'], r['step'])
+        g16_by_key[key] = r
+
+    # Nova keyed by (circuit, n, step) — keep last (largest run) for each key
+    nova_by_key = {}
+    for r in nova_rows:
+        key = (r.get('circuit', ''), r.get('n', ''), r.get('step', ''))
+        nova_by_key[key] = r
+
+    # Collect all keys as (circuit, n, B, step) for UVC, and (circuit, n, step) for others
+    # Output one row per UVC (circuit, n, B, step), enriched with Groth16 and Nova
+    all_uvc_keys = sorted(uvc_by_key.keys(), key=lambda k: (k[0], int(k[1]), int(k[2]), int(k[3])))
+
+    with open(output_path, 'w', newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow([
+            'circuit', 'n', 'B', 'step',
+            'uvc_setup_ms', 'uvc_prove_ms', 'uvc_verify_ms',
+            'uvc_crs_g1', 'uvc_crs_g2', 'uvc_proof_bytes', 'uvc_peak_mem_mb',
+            'g16_setup_ms', 'g16_prove_ms', 'g16_verify_ms',
+            'g16_crs_g1', 'g16_crs_g2', 'g16_proof_bytes',
+            'nova_setup_ms', 'nova_fold_ms', 'nova_total_fold_ms',
+            'nova_compress_ms', 'nova_verify_ms', 'nova_proof_bytes',
+        ])
+
+        for key in all_uvc_keys:
+            circuit, n, B, step = key
+            uvc = uvc_by_key[key]
+            g16_key = (circuit, n, step)
+            g16 = g16_by_key.get(g16_key, {})
+            nova = nova_by_key.get(g16_key, {})
+
+            writer.writerow([
+                circuit, n, B, step,
+                uvc.get('setup_ms', ''), uvc.get('prove_ms', ''),
+                uvc.get('verify_ms', ''), uvc.get('crs_g1', ''), uvc.get('crs_g2', ''),
+                uvc.get('proof_bytes', ''), uvc.get('peak_mem_mb', ''),
+                g16.get('setup_ms', ''), g16.get('prove_ms', ''),
+                g16.get('verify_ms', ''), g16.get('crs_g1', ''), g16.get('crs_g2', ''),
+                g16.get('proof_bytes', ''),
+                nova.get('setup_ms', ''), nova.get('fold_ms', ''),
+                nova.get('total_fold_ms', ''),
+                nova.get('compress_ms', ''), nova.get('verify_ms', ''),
+                nova.get('proof_bytes', ''),
+            ])
+
+    print(f"Combined results written to {output_path}")
+    print(f"  UVC rows: {len(uvc_rows)}, Groth16 rows: {len(g16_rows)}, Nova rows: {len(nova_rows)}")
+    print(f"  Total combined rows: {len(all_uvc_keys)}")
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Merge benchmark results')
+    parser.add_argument('--input-dir', required=True, help='Directory with all CSV files')
+    parser.add_argument('--output', default='combined_results.csv', help='Output file path')
+    args = parser.parse_args()
+
+    merge_results(args.input_dir, args.output)

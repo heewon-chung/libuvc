@@ -1,0 +1,11 @@
+
+======================================================================
+  Crossover Analysis (j* where UVC cumulative < Groth16 re-prove)
+======================================================================
+      Circuit   n  B=16 j*  B=64 j*
+-------------  --  -------  -------
+Sensor fusion   4      >64      >64
+Sensor fusion   8      >64      >64
+Sensor fusion  16      >64      >64
+Sensor fusion  32      >64      >64
+Sensor fusion  64      >64      >64

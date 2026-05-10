@@ -1,0 +1,20 @@
+% Auto-generated setup comparison
+\begin{table}[t]
+\centering
+\caption{Setup cost comparison (seconds).}
+\label{tab:setup}
+\renewcommand{\arraystretch}{1.2}
+{\footnotesize
+\begin{tabular}{@{}llcccc@{}}
+\toprule
+\textbf{Circuit} & $n$ & \textbf{Ours} ($B\!=\!16$) & \textbf{Ours} ($B\!=\!64$) & \textbf{Groth16} & \textbf{Nova} \\
+\midrule
+sensor_fusion & 4 & <0.1 & 0.1 & <0.1 & 0.8 \\
+sensor_fusion & 8 & <0.1 & 0.2 & <0.1 & 0.7 \\
+sensor_fusion & 16 & 0.1 & 0.3 & <0.1 & 0.7 \\
+sensor_fusion & 32 & 0.2 & 0.5 & <0.1 & 0.7 \\
+sensor_fusion & 64 & 0.3 & 1.0 & <0.1 & 0.7 \\
+\bottomrule
+\end{tabular}
+}% end footnotesize
+\end{table}

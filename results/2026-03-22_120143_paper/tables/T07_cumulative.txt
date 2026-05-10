@@ -1,0 +1,16 @@
+
+==========================================================================================
+  Cumulative Total Time (seconds) — setup + all proving steps
+==========================================================================================
+          Circuit      n   B  UVC total(s)  G16 total(s)  Nova total(s)  UVC/G16  UVC/Nova
+-----------------  -----  --  ------------  ------------  -------------  -------  --------
+  MiMC hash chain    270  16           4.1           9.6            3.3    0.42x     1.23x
+  MiMC hash chain    270  64          35.7         120.8            6.2    0.30x     5.77x
+ Hadamard product     16  16           0.4           1.1            3.4    0.36x     0.12x
+ Hadamard product     16  64           3.4          12.9            6.4    0.26x     0.52x
+ Hadamard product     32  16           0.7           1.9            3.8    0.37x     0.18x
+ Hadamard product     32  64           5.5          22.2            7.3    0.25x     0.75x
+Repeated squaring   1024  16          15.8          46.9            3.3    0.34x     4.75x
+Repeated squaring   1024  64         137.9         634.6            6.2    0.22x    22.33x
+Repeated squaring  16384  16         191.5         559.4            4.6    0.34x    41.88x
+Repeated squaring  16384  64        1879.6        7958.4            9.4    0.24x   199.56x

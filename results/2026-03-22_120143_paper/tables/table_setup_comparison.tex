@@ -1,0 +1,30 @@
+% Auto-generated setup cost comparison
+\begin{table}[htbp]
+\centering
+\caption{Setup cost comparison across UVC, Groth16, and Nova.}
+\label{tab:setup-comparison}
+\scriptsize
+\begin{tabular}{llrrrrr}
+\toprule
+ & & \multicolumn{2}{c}{UVC} & Groth16 & Nova \\
+\cmidrule(lr){3-4}
+Circuit & $n$ & $B$ & Setup (ms) & Setup at $j{=}1$ (ms) & Setup (ms) \\
+\midrule
+\texttt{hadamard} & 16 & 16 & 158 & 20.4 & 1363 \\
+ &  & 64 & 453 &  &  \\
+\midrule
+\texttt{hadamard} & 32 & 16 & 255 & 29.2 & 1385 \\
+ &  & 64 & 785 &  &  \\
+\midrule
+\texttt{mimc} & 270 & 16 & 857 & 59.7 & 1365 \\
+ &  & 64 & 2812 &  &  \\
+\midrule
+\texttt{scalable} & 1024 & 16 & 4586 & 237 & 1336 \\
+ &  & 64 & 15.9k &  &  \\
+\midrule
+\texttt{scalable} & 16384 & 16 & 55.4k & 2586 & 1744 \\
+ &  & 64 & 205.7k &  &  \\
+\midrule
+\bottomrule
+\end{tabular}
+\end{table}

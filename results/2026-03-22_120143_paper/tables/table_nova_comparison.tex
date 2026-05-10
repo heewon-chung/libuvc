@@ -1,0 +1,45 @@
+% Auto-generated comparison table: UVC vs Nova
+\begin{table}[htbp]
+\centering
+\caption{UVC vs.\ Nova IVC: per-step and cumulative cost comparison.}
+\label{tab:nova-comparison}
+\scriptsize
+\begin{tabular}{llrrrrrrr}
+\toprule
+ & & & \multicolumn{2}{c}{UVC} & \multicolumn{3}{c}{Nova} \\
+\cmidrule(lr){4-5} \cmidrule(lr){6-8}
+Circuit & $n$ & Step $j$ & Prove (ms) & Verify (ms) & Fold (ms) & Compress (ms) & Verify (ms) \\
+\midrule
+\texttt{hadamard} & 16 & 1 & 14.9 & 4.1 & 27.2 & 1125 & 41.0 \\
+ &  & 2 & 15.0 & 4.0 & 48.0 & 1125 & 41.0 \\
+ &  & 4 & 15.1 & 4.0 & 57.4 & 1125 & 41.0 \\
+ &  & 8 & 15.3 & 4.0 & 60.5 & 1125 & 41.0 \\
+ &  & 16 & 15.4 & 4.0 & 59.1 & 1125 & 41.0 \\
+\midrule
+\texttt{hadamard} & 32 & 1 & 27.2 & 4.0 & 48.7 & 1244 & 40.1 \\
+ &  & 2 & 27.3 & 4.0 & 67.1 & 1244 & 40.1 \\
+ &  & 4 & 27.5 & 4.0 & 73.2 & 1244 & 40.1 \\
+ &  & 8 & 27.9 & 4.0 & 68.0 & 1244 & 40.1 \\
+ &  & 16 & 27.9 & 4.0 & 73.8 & 1244 & 40.1 \\
+\midrule
+\texttt{mimc} & 270 & 1 & 199 & 4.3 & 24.6 & 1115 & 40.6 \\
+ &  & 2 & 201 & 4.2 & 53.6 & 1115 & 40.6 \\
+ &  & 4 & 194 & 3.9 & 53.0 & 1115 & 40.6 \\
+ &  & 8 & 201 & 4.1 & 54.4 & 1115 & 40.6 \\
+ &  & 16 & 201 & 4.1 & 54.2 & 1115 & 40.6 \\
+\midrule
+\texttt{scalable} & 1024 & 1 & 692 & 4.0 & 26.3 & 1087 & 36.1 \\
+ &  & 2 & 700 & 4.0 & 55.6 & 1087 & 36.1 \\
+ &  & 4 & 701 & 4.0 & 54.4 & 1087 & 36.1 \\
+ &  & 8 & 701 & 4.0 & 56.2 & 1087 & 36.1 \\
+ &  & 16 & 701 & 4.0 & 57.6 & 1087 & 36.1 \\
+\midrule
+\texttt{scalable} & 16384 & 1 & 8482 & 4.0 & 48.0 & 1237 & 36.8 \\
+ &  & 2 & 8508 & 4.2 & 87.7 & 1237 & 36.8 \\
+ &  & 4 & 8513 & 4.0 & 103 & 1237 & 36.8 \\
+ &  & 8 & 8506 & 4.0 & 127 & 1237 & 36.8 \\
+ &  & 16 & 8516 & 4.0 & 98.5 & 1237 & 36.8 \\
+\midrule
+\bottomrule
+\end{tabular}
+\end{table}

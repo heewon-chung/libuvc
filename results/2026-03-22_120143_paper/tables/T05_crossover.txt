@@ -1,0 +1,11 @@
+
+=========================================================================
+  Marginal Crossover (j* where UVC update < Groth16 re-prove at step j)
+=========================================================================
+          Circuit      n  B=16 j*  B=64 j*
+-----------------  -----  -------  -------
+  MiMC hash chain    270        2        8
+ Hadamard product     16        1        4
+ Hadamard product     32        1        4
+Repeated squaring   1024        2        8
+Repeated squaring  16384        2        8

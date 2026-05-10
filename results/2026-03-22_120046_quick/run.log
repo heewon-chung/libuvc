@@ -1,0 +1,31 @@
+============================================================
+  UVC Benchmark Suite
+  Sun Mar 22 12:00:46 KST 2026
+  Mode: all
+  Tag:  quick
+  Reps: 2
+  Output: /Users/heewonchung/Documents/04-Dev/01-research/active/libsnark-uvc/results/2026-03-22_120046_quick
+============================================================
+
+Date:     2026-03-22T03:00:46Z
+Hostname: GoM-MacStudioM1.local
+OS:       Darwin 25.3.0 arm64
+CPU:      Apple M1 Max
+Cores:    10
+RAM:      64 GB
+Compiler: Apple clang version 17.0.0 (clang-1700.6.4.2)
+Build:    Release -O2 -march=native
+Reps:     2
+Configs:  3 C++ + 3 Nova
+
+  Building all benchmarks...
+[ 51%] Built target ff
+[ 96%] Built target snark
+[100%] Linking CXX executable bench_comparative
+ld: warning: search path '/opt/homebrew/Cellar/openssl@3/3.6.0/lib' not found
+ld: library 'crypto' not found
+clang++: fatal error: linker command failed with exit code 1 (use -v to see invocation)
+make[3]: *** [bench_comparative] Error 1
+make[2]: *** [CMakeFiles/bench_comparative.dir/all] Error 2
+make[1]: *** [CMakeFiles/bench_comparative.dir/rule] Error 2
+make: *** [bench_comparative] Error 2

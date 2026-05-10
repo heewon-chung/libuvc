@@ -1,0 +1,10 @@
+Date:     2026-03-06T03:05:42Z
+Hostname: GoM-MacStudioM1.local
+OS:       Darwin 25.3.0 arm64
+CPU:      Apple M1 Max
+Cores:    10
+RAM:      64 GB
+Compiler: Apple clang version 17.0.0 (clang-1700.6.4.2)
+Build:    Release -O2 -march=native
+Reps:     10
+Configs:  10 C++ + 5 Nova

@@ -1,0 +1,41 @@
+============================================================
+  UVC Benchmark Suite
+  Fri Mar  6 12:05:42 KST 2026
+  Mode: all
+  Tag:  paper
+  Reps: 10
+  Output: /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/results/2026-03-06_120542_paper
+============================================================
+
+Date:     2026-03-06T03:05:42Z
+Hostname: GoM-MacStudioM1.local
+OS:       Darwin 25.3.0 arm64
+CPU:      Apple M1 Max
+Cores:    10
+RAM:      64 GB
+Compiler: Apple clang version 17.0.0 (clang-1700.6.4.2)
+Build:    Release -O2 -march=native
+Reps:     10
+Configs:  10 C++ + 5 Nova
+
+  Building C++ benchmarks...
+
+
+-- Configuring done (0.1s)
+-- Generating done (0.3s)
+-- Build files have been written to: /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/build
+[ 51%] Built target ff
+[ 96%] Built target snark
+[ 96%] Building CXX object CMakeFiles/bench_comparative.dir/src/libsnark/zk_proof_systems/ppzksnark/r1cs_uvc_ppzksnark/benchmarks/bench_comparative.cpp.o
+In file included from /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/src/libsnark/zk_proof_systems/ppzksnark/r1cs_uvc_ppzksnark/benchmarks/bench_comparative.cpp:28:
+In file included from /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/src/libsnark/zk_proof_systems/ppzksnark/r1cs_uvc_ppzksnark/r1cs_uvc_ppzksnark.hpp:38:
+In file included from /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/src/libsnark/common/data_structures/accumulation_vector.hpp:17:
+In file included from /Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/src/libsnark/common/data_structures/sparse_vector.hpp:78:
+/Users/heewonchung/Documents/00-Research/active/Updatable Verifiable Computation/Dev/src/libsnark/common/data_structures/sparse_vector.tcc:20:10: fatal error: 'omp.h' file not found
+   20 | #include <omp.h>
+      |          ^~~~~~~
+1 error generated.
+make[3]: *** [CMakeFiles/bench_comparative.dir/src/libsnark/zk_proof_systems/ppzksnark/r1cs_uvc_ppzksnark/benchmarks/bench_comparative.cpp.o] Error 1
+make[2]: *** [CMakeFiles/bench_comparative.dir/all] Error 2
+make[1]: *** [CMakeFiles/bench_comparative.dir/rule] Error 2
+make: *** [bench_comparative] Error 2

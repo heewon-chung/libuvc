@@ -1,0 +1,94 @@
+% Crossover analysis: step j* where UVC cumulative cost < Groth16 re-prove
+% UVC cost at step j: setup + sum of prove times for steps 1..j
+% Groth16 cost at step j: setup(C_j) + prove(C_j)
+
+% Circuit: sensor_fusion, n=16, B=16
+%   j=1: UVC_cumul=124.7ms, G16_total=24.9ms
+%   j=2: UVC_cumul=145.2ms, G16_total=35.2ms
+%   j=4: UVC_cumul=166.1ms, G16_total=53.3ms
+%   j=8: UVC_cumul=186.8ms, G16_total=86.5ms
+%   j=16: UVC_cumul=204.8ms, G16_total=140.0ms
+%   -> No crossover within measured steps
+
+% Circuit: sensor_fusion, n=16, B=64
+%   j=1: UVC_cumul=366.6ms, G16_total=24.9ms
+%   j=2: UVC_cumul=408.5ms, G16_total=35.2ms
+%   j=4: UVC_cumul=450.4ms, G16_total=53.3ms
+%   j=8: UVC_cumul=492.4ms, G16_total=86.5ms
+%   j=16: UVC_cumul=534.6ms, G16_total=140.0ms
+%   j=32: UVC_cumul=576.6ms, G16_total=250.5ms
+%   j=64: UVC_cumul=616.0ms, G16_total=413.7ms
+%   -> No crossover within measured steps
+
+% Circuit: sensor_fusion, n=32, B=16
+%   j=1: UVC_cumul=207.2ms, G16_total=34.7ms
+%   j=2: UVC_cumul=238.0ms, G16_total=53.5ms
+%   j=4: UVC_cumul=269.1ms, G16_total=86.9ms
+%   j=8: UVC_cumul=300.2ms, G16_total=137.4ms
+%   j=16: UVC_cumul=331.4ms, G16_total=263.8ms
+%   -> No crossover within measured steps
+
+% Circuit: sensor_fusion, n=32, B=64
+%   j=1: UVC_cumul=604.3ms, G16_total=34.7ms
+%   j=2: UVC_cumul=666.2ms, G16_total=53.5ms
+%   j=4: UVC_cumul=728.1ms, G16_total=86.9ms
+%   j=8: UVC_cumul=790.2ms, G16_total=137.4ms
+%   j=16: UVC_cumul=852.3ms, G16_total=263.8ms
+%   j=32: UVC_cumul=914.3ms, G16_total=403.8ms
+%   j=64: UVC_cumul=976.6ms, G16_total=711.6ms
+%   -> No crossover within measured steps
+
+% Circuit: sensor_fusion, n=4, B=16
+%   j=1: UVC_cumul=53.1ms, G16_total=14.1ms
+%   j=2: UVC_cumul=61.4ms, G16_total=18.2ms
+%   j=4: UVC_cumul=69.5ms, G16_total=26.0ms
+%   j=8: UVC_cumul=77.9ms, G16_total=37.3ms
+%   j=16: UVC_cumul=85.6ms, G16_total=59.0ms
+%   -> No crossover within measured steps
+
+% Circuit: sensor_fusion, n=4, B=64
+%   j=1: UVC_cumul=142.7ms, G16_total=14.1ms
+%   j=2: UVC_cumul=157.8ms, G16_total=18.2ms
+%   j=4: UVC_cumul=172.6ms, G16_total=26.0ms
+%   j=8: UVC_cumul=187.6ms, G16_total=37.3ms
+%   j=16: UVC_cumul=202.5ms, G16_total=59.0ms
+%   j=32: UVC_cumul=217.5ms, G16_total=92.2ms
+%   j=64: UVC_cumul=232.2ms, G16_total=161.3ms
+%   -> No crossover within measured steps
+
+% Circuit: sensor_fusion, n=64, B=16
+%   j=1: UVC_cumul=353.8ms, G16_total=54.1ms
+%   j=2: UVC_cumul=409.2ms, G16_total=88.0ms
+%   j=4: UVC_cumul=464.3ms, G16_total=138.8ms
+%   j=8: UVC_cumul=519.5ms, G16_total=236.1ms
+%   j=16: UVC_cumul=570.1ms, G16_total=398.3ms
+%   -> No crossover within measured steps
+
+% Circuit: sensor_fusion, n=64, B=64
+%   j=1: UVC_cumul=1111.9ms, G16_total=54.1ms
+%   j=2: UVC_cumul=1225.9ms, G16_total=88.0ms
+%   j=4: UVC_cumul=1339.8ms, G16_total=138.8ms
+%   j=8: UVC_cumul=1454.2ms, G16_total=236.1ms
+%   j=16: UVC_cumul=1568.6ms, G16_total=398.3ms
+%   j=32: UVC_cumul=1682.8ms, G16_total=695.7ms
+%   j=64: UVC_cumul=1792.5ms, G16_total=1308.0ms
+%   -> No crossover within measured steps
+
+% Circuit: sensor_fusion, n=8, B=16
+%   j=1: UVC_cumul=78.1ms, G16_total=18.9ms
+%   j=2: UVC_cumul=91.7ms, G16_total=25.2ms
+%   j=4: UVC_cumul=105.2ms, G16_total=35.7ms
+%   j=8: UVC_cumul=118.8ms, G16_total=55.0ms
+%   j=16: UVC_cumul=130.9ms, G16_total=90.5ms
+%   -> No crossover within measured steps
+
+% Circuit: sensor_fusion, n=8, B=64
+%   j=1: UVC_cumul=234.7ms, G16_total=18.9ms
+%   j=2: UVC_cumul=259.7ms, G16_total=25.2ms
+%   j=4: UVC_cumul=284.6ms, G16_total=35.7ms
+%   j=8: UVC_cumul=309.6ms, G16_total=55.0ms
+%   j=16: UVC_cumul=334.5ms, G16_total=90.5ms
+%   j=32: UVC_cumul=359.5ms, G16_total=148.5ms
+%   j=64: UVC_cumul=382.6ms, G16_total=255.4ms
+%   -> No crossover within measured steps
+

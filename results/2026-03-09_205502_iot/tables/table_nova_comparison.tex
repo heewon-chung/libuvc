@@ -1,0 +1,39 @@
+% Auto-generated comparison table: UVC vs Nova
+\begin{table}[htbp]
+\centering
+\caption{UVC vs.\ Nova IVC: per-step and cumulative cost comparison.}
+\label{tab:nova-comparison}
+\scriptsize
+\begin{tabular}{llrrrrrrr}
+\toprule
+ & & & \multicolumn{2}{c}{UVC} & \multicolumn{3}{c}{Nova} \\
+\cmidrule(lr){4-5} \cmidrule(lr){6-8}
+Circuit & $n$ & Step $j$ & Prove (ms) & Verify (ms) & Fold (ms) & Compress (ms) & Verify (ms) \\
+\midrule
+\texttt{sensor_fusion} & 4 & 1 & 14.7 & 2.7 & 14.1 & 594 & 22.4 \\
+ &  & 2 & 14.9 & 2.7 & 29.5 & 594 & 22.4 \\
+ &  & 4 & 15.2 & 2.7 & 31.8 & 594 & 22.4 \\
+ &  & 8 & 15.1 & 2.7 & 49.8 & 594 & 22.4 \\
+ &  & 16 & 14.8 & 2.7 & 40.0 & 594 & 22.4 \\
+ &  & 32 & 15.0 & 2.7 & 31.6 & 594 & 22.4 \\
+ &  & 64 & 14.7 & 2.7 & 31.2 & 594 & 22.4 \\
+\midrule
+\texttt{sensor_fusion} & 6 & 1 & 17.5 & 2.7 & 13.9 & 596 & 21.8 \\
+ &  & 2 & 17.7 & 2.7 & 24.4 & 596 & 21.8 \\
+ &  & 4 & 17.6 & 2.7 & 31.0 & 596 & 21.8 \\
+ &  & 8 & 17.8 & 2.6 & 32.7 & 596 & 21.8 \\
+ &  & 16 & 17.7 & 2.8 & 34.9 & 596 & 21.8 \\
+ &  & 32 & 17.7 & 2.7 & 31.8 & 596 & 21.8 \\
+ &  & 64 & 17.5 & 2.7 & 36.6 & 596 & 21.8 \\
+\midrule
+\texttt{sensor_fusion} & 8 & 1 & 24.9 & 2.8 & 14.8 & 546 & 20.9 \\
+ &  & 2 & 25.4 & 2.9 & 28.9 & 546 & 20.9 \\
+ &  & 4 & 25.0 & 2.7 & 32.1 & 546 & 20.9 \\
+ &  & 8 & 25.2 & 2.8 & 31.2 & 546 & 20.9 \\
+ &  & 16 & 25.4 & 2.7 & 32.1 & 546 & 20.9 \\
+ &  & 32 & 25.1 & 2.7 & 31.4 & 546 & 20.9 \\
+ &  & 64 & 23.6 & 2.8 & 37.1 & 546 & 20.9 \\
+\midrule
+\bottomrule
+\end{tabular}
+\end{table}
