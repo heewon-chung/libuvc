@@ -748,6 +748,108 @@ bool test_partial_B()
     printf("  Result: %s\n", v ? "PASS" : "FAIL");
     return v;
 }
+/* ======================================================================== */
+/* Test 14: Running eta-track state commitment                               */
+/* ======================================================================== */
+
+template<typename ppT>
+bool test_state_commitment_chain_for_circuit(
+    const char *name,
+    const state_transition_circuit<libff::Fr<ppT> > &st,
+    const std::vector<std::vector<libff::Fr<ppT> > > &states,
+    const std::vector<std::vector<libff::Fr<ppT> > > &transitions)
+{
+    typedef libff::Fr<ppT> FieldT;
+    const size_t B = transitions.size();
+    const size_t ss = st.state_size;
+    const std::vector<std::vector<FieldT> > witnesses(B);
+
+    printf("  %s (state_size=%zu):\n", name, ss);
+    auto kp = r1cs_uvc_ppzksnark_generator<ppT>(st, B, true);
+    bool pass = true;
+    r1cs_uvc_ppzksnark_proof<ppT> prev;
+    bool have_prev = false;
+
+    for (size_t step = 1; step <= B; ++step)
+    {
+        const auto assign = build_composed_assignment(st, step, states, transitions, witnesses);
+        const auto proof = r1cs_uvc_ppzksnark_prover<ppT>(
+            kp.pk, step, assign.first, assign.second, have_prev ? &prev : nullptr);
+
+        libff::G1<ppT> expected_delta = libff::G1<ppT>::zero();
+        for (size_t i = 0; i < ss; ++i) {
+            expected_delta = expected_delta +
+                states[step][i] * kp.vk.st_ABC_g1[(step - 1) * ss + i];
+        }
+
+        const bool bound = proof.bind_state;
+        const bool identity = step == 1
+            ? proof.g_D == expected_delta
+            : proof.g_D - prev.g_D == expected_delta;
+        const bool changed = !have_prev || proof.g_D != prev.g_D;
+        printf("    Step %zu: bind_state=%s, %s identity=%s, g_D changes=%s\n",
+               step, bound ? "PASS" : "FAIL", step == 1 ? "base" : "increment",
+               identity ? "PASS" : "FAIL", changed ? "PASS" : "FAIL");
+        pass &= bound && identity && changed;
+
+        prev = proof;
+        have_prev = true;
+    }
+
+    return pass;
+}
+
+template<typename ppT>
+bool test_state_commitment_chain()
+{
+    typedef libff::Fr<ppT> FieldT;
+    printf("\n--- test_state_commitment_chain ---\n");
+    printf("  Checks eta-track D_j base and incremental commitment identities.\n");
+
+    const auto multiplier = make_multiplier<FieldT>();
+    const std::vector<std::vector<FieldT> > multiplier_states = {
+        {FieldT(3)}, {FieldT(15)}, {FieldT(105)}, {FieldT(210)}
+    };
+    const std::vector<std::vector<FieldT> > multiplier_transitions = {
+        {FieldT(5)}, {FieldT(7)}, {FieldT(2)}
+    };
+
+    bool pass = test_state_commitment_chain_for_circuit<ppT>(
+        "multiplier", multiplier, multiplier_states, multiplier_transitions);
+
+    const auto two_state = make_two_state_mult<FieldT>();
+    const std::vector<std::vector<FieldT> > two_state_states = {
+        {FieldT(2), FieldT(3)}, {FieldT(10), FieldT(15)},
+        {FieldT(30), FieldT(45)}, {FieldT(60), FieldT(90)}
+    };
+    const std::vector<std::vector<FieldT> > two_state_transitions = {
+        {FieldT(5)}, {FieldT(3)}, {FieldT(2)}
+    };
+    pass &= test_state_commitment_chain_for_circuit<ppT>(
+        "two-state multiplier", two_state, two_state_states, two_state_transitions);
+
+    const std::vector<std::vector<FieldT> > witnesses(3);
+    auto off_kp = r1cs_uvc_ppzksnark_generator<ppT>(multiplier, 3, false);
+    r1cs_uvc_ppzksnark_proof<ppT> prev;
+    bool have_prev = false;
+    for (size_t step = 1; step <= 3; ++step) {
+        const auto assign = build_composed_assignment(
+            multiplier, step, multiplier_states, multiplier_transitions, witnesses);
+        const auto proof = r1cs_uvc_ppzksnark_prover<ppT>(
+            off_kp.pk, step, assign.first, assign.second, have_prev ? &prev : nullptr);
+        const bool off_shape = !proof.bind_state &&
+            proof.g_D == libff::G1<ppT>::zero() && proof.G1_size() == 2;
+        printf("  Off-path step %zu: 2-G1 and zero g_D=%s\n",
+               step, off_shape ? "PASS" : "FAIL");
+        pass &= off_shape;
+        prev = proof;
+        have_prev = true;
+    }
+
+    printf("  Result: %s\n", pass ? "PASS" : "FAIL");
+    return pass;
+}
+
 
 
 /* ======================================================================== */
@@ -785,6 +887,7 @@ int main()
     /* Incremental tests */
     all_pass &= test_incremental_valid<libff::alt_bn128_pp>();
     all_pass &= test_partial_B<libff::alt_bn128_pp>();
+    all_pass &= test_state_commitment_chain<libff::alt_bn128_pp>();
 
     printf("\n================================================================\n");
     printf("r1cs_uvc_ppzksnark_prover & verifier: %s\n", all_pass ? "ALL PASSED" : "SOME FAILED");

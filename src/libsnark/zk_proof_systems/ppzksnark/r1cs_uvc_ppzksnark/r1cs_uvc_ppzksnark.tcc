@@ -566,6 +566,9 @@ r1cs_uvc_ppzksnark_proof<ppT> r1cs_uvc_ppzksnark_prover(
     full_assignment.emplace_back(FieldT::one()); /* wire 0 = constant 1 */
     full_assignment.insert(full_assignment.end(), primary_input.begin(), primary_input.end());
     full_assignment.insert(full_assignment.end(), auxiliary_input.begin(), auxiliary_input.end());
+    /* State binding is derived from the CRS flag rather than a prover argument:
+       the generator-level flag avoids contradictory prover configuration. */
+
 
     if (step == 1)
     {
@@ -612,12 +615,28 @@ r1cs_uvc_ppzksnark_proof<ppT> r1cs_uvc_ppzksnark_prover(
             h_coeffs.begin(),
             h_coeffs.begin() + h_len,
             chunks);
+        libff::G1<ppT> g1_D = libff::G1<ppT>::zero();
+        if (pk.bind_state) {
+            assert(pk.st_query.size() >= ss);
+            /* D_1 = sum_i s_1[i] * [L_i / eta]_1 for the step-1 state-output slice. */
+            g1_D = libff::multi_exp_with_mixed_addition<libff::G1<ppT>, FieldT,
+                                                         libff::multi_exp_method_BDLO12>(
+                pk.st_query.begin(), pk.st_query.begin() + ss,
+                full_assignment.begin() + ss + ts + 1,
+                full_assignment.begin() + 2 * ss + ts + 1,
+                chunks);
+        }
+
 
         libff::leave_block("UVC base case: fresh proof for step 1");
 
         r1cs_uvc_ppzksnark_proof<ppT> proof(
             std::move(g1_A), std::move(g2_B), std::move(g1_C),
             step, std::move(h_coeffs));
+        if (pk.bind_state) {
+            proof.bind_state = true;
+            proof.g_D = std::move(g1_D);
+        }
 
         proof.print_size();
         libff::leave_block("Call to r1cs_uvc_ppzksnark_prover");
@@ -637,6 +656,20 @@ r1cs_uvc_ppzksnark_proof<ppT> r1cs_uvc_ppzksnark_prover(
     for (size_t i = 0; i < sd.new_wire_count; ++i) {
         new_wire_values.push_back(full_assignment[sd.new_wire_start + i]);
     }
+    libff::G1<ppT> g1_D = libff::G1<ppT>::zero();
+    if (pk.bind_state) {
+        assert(prev_proof->bind_state);
+        assert(sd.st_query_delta.size() == ss);
+        /* new_wire_start + ts = (step-1)*new_per_step + ss + ts + 1,
+           so new_wire_values[ts..ts+ss-1] is exactly step j's state-output slice. */
+        assert(sd.new_wire_start + ts == (step - 1) * new_per_step + ss + ts + 1);
+        g1_D = prev_proof->g_D + libff::multi_exp_with_mixed_addition<libff::G1<ppT>, FieldT,
+                                                                        libff::multi_exp_method_BDLO12>(
+            sd.st_query_delta.begin(), sd.st_query_delta.end(),
+            new_wire_values.begin() + ts, new_wire_values.begin() + ts + ss,
+            chunks);
+    }
+
 
     /* A_j = A_{j-1} + sum_{new wires} a_i * [u_i(x)]_1 */
     libff::enter_block("Incremental A update", false);
@@ -707,6 +740,10 @@ r1cs_uvc_ppzksnark_proof<ppT> r1cs_uvc_ppzksnark_prover(
     r1cs_uvc_ppzksnark_proof<ppT> proof(
         std::move(g1_A), std::move(g2_B), std::move(g1_C),
         step, std::move(h_coeffs));
+    if (pk.bind_state) {
+        proof.bind_state = true;
+        proof.g_D = std::move(g1_D);
+    }
 
     proof.print_size();
     libff::leave_block("Call to r1cs_uvc_ppzksnark_prover");
