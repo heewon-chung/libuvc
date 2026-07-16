@@ -289,6 +289,21 @@ bool r1cs_uvc_ppzksnark_verifier(
     size_t step,
     const r1cs_uvc_ppzksnark_primary_input<ppT> &primary_input,
     const r1cs_uvc_ppzksnark_proof<ppT> &proof);
+/**
+ * UVC.Verify: Verify a state-bound proof at step j.
+ *
+ * D_prev is trusted caller-held state: G1::zero() at step 1, then g_D from
+ * the previous accepted proof. It is never sourced from the proof under
+ * verification.
+ */
+template<typename ppT>
+bool r1cs_uvc_ppzksnark_verifier(
+    const r1cs_uvc_ppzksnark_verification_key<ppT> &vk,
+    size_t step,
+    const r1cs_uvc_ppzksnark_primary_input<ppT> &primary_input,
+    const std::vector<libff::Fr<ppT> > &reported_s_j,
+    const r1cs_uvc_ppzksnark_proof<ppT> &proof,
+    const libff::G1<ppT> &D_prev);
 
 
 /***************************** Helper functions ******************************/

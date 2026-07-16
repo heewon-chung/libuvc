@@ -497,6 +497,76 @@ bool test_stored_constraint_system()
     printf("  Result: %s\n", pass ? "PASS" : "FAIL");
     return pass;
 }
+/* ======================================================================== */
+/* Tests 8-9: State-binding CRS layout                                      */
+/* ======================================================================== */
+
+template<typename ppT>
+bool check_bind_state_generator_dimensions(
+    const char *name,
+    const state_transition_circuit<libff::Fr<ppT> > &st)
+{
+    const size_t B = 3;
+    const size_t ss = st.state_size;
+    const size_t ts = st.transition_size;
+    const size_t new_per_step = st.num_new_wires_per_step();
+    const auto bound_kp = r1cs_uvc_ppzksnark_generator<ppT>(st, B, true);
+    const auto unbound_kp = r1cs_uvc_ppzksnark_generator<ppT>(st, B, false);
+
+    bool placeholders = true;
+    const std::vector<size_t> state_wires = uvc_state_output_indices(st, B);
+    for (const size_t wire : state_wires) {
+        const size_t L_index = wire - (ss + ts) - 1;
+        placeholders &= bound_kp.pk.base_pk.L_query[L_index].is_zero();
+        placeholders &= !unbound_kp.pk.base_pk.L_query[L_index].is_zero();
+    }
+
+    bool step_deltas = bound_kp.pk.step_data.size() == B - 1;
+    for (const auto &step_data : bound_kp.pk.step_data) {
+        step_deltas &= step_data.st_query_delta.size() == ss;
+    }
+
+    const bool pass =
+        bound_kp.pk.st_query.size() == B * ss &&
+        bound_kp.vk.st_ABC_g1.size() == B * ss &&
+        bound_kp.vk.state_size == ss &&
+        bound_kp.vk.transition_size == ts &&
+        bound_kp.vk.new_per_step == new_per_step &&
+        bound_kp.vk.eta_g2 != libff::G2<ppT>::zero() &&
+        step_deltas && placeholders;
+    printf("  %s: dimensions/placeholders=%s\n", name, pass ? "PASS" : "FAIL");
+    return pass;
+}
+
+template<typename ppT>
+bool test_bind_state_generator_dimensions()
+{
+    typedef libff::Fr<ppT> FieldT;
+    printf("\n--- test_bind_state_generator_dimensions ---\n");
+    const bool pass =
+        check_bind_state_generator_dimensions<ppT>("multiplier", make_multiplier<FieldT>()) &&
+        check_bind_state_generator_dimensions<ppT>("two-state multiplier", make_two_state_mult<FieldT>());
+    printf("  Result: %s\n", pass ? "PASS" : "FAIL");
+    return pass;
+}
+
+template<typename ppT>
+bool test_track_disjointness_checker_detects_violation()
+{
+    typedef libff::Fr<ppT> FieldT;
+    printf("\n--- test_track_disjointness_checker_detects_violation ---\n");
+    const auto st = make_multiplier<FieldT>();
+    const size_t B = 3;
+    const size_t total_vars = st.wires_per_step() + (B - 1) * st.num_new_wires_per_step();
+    const bool consistent = uvc_check_track_disjointness(st, B, total_vars);
+    const bool wrong_total_vars = !uvc_check_track_disjointness(st, B, total_vars + 1);
+    const bool wrong_B = !uvc_check_track_disjointness(st, B + 1, total_vars);
+    const bool pass = consistent && wrong_total_vars && wrong_B;
+    printf("  Consistent=%s, wrong total vars=%s, wrong B=%s\n",
+           consistent ? "PASS" : "FAIL", wrong_total_vars ? "PASS" : "FAIL",
+           wrong_B ? "PASS" : "FAIL");
+    return pass;
+}
 
 
 /* ======================================================================== */
@@ -521,6 +591,8 @@ int main()
     all_pass &= test_vk_gamma_abc_size<libff::alt_bn128_pp>();
     all_pass &= test_b_equals_1<libff::alt_bn128_pp>();
     all_pass &= test_stored_constraint_system<libff::alt_bn128_pp>();
+    all_pass &= test_bind_state_generator_dimensions<libff::alt_bn128_pp>();
+    all_pass &= test_track_disjointness_checker_detects_violation<libff::alt_bn128_pp>();
 
     printf("\n================================================================\n");
     printf("r1cs_uvc_ppzksnark_generator: %s\n", all_pass ? "ALL PASSED" : "SOME FAILED");

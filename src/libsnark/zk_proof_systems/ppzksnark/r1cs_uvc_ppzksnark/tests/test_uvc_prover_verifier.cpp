@@ -229,7 +229,7 @@ struct multiplier_fixture {
     std::vector<r1cs_uvc_ppzksnark_proof<ppT> > proofs;
     std::vector<r1cs_uvc_ppzksnark_primary_input<ppT> > primaries;
 
-    multiplier_fixture()
+    multiplier_fixture(bool bind_state = false)
     {
         st = make_multiplier<FieldT>();
 
@@ -238,7 +238,7 @@ struct multiplier_fixture {
         transitions = { {FieldT(5)}, {FieldT(7)}, {FieldT(2)} };
         witnesses = { {}, {}, {} };
 
-        kp = r1cs_uvc_ppzksnark_generator<ppT>(st, 3);
+        kp = r1cs_uvc_ppzksnark_generator<ppT>(st, 3, bind_state);
 
         for (size_t step = 1; step <= 3; ++step)
         {
@@ -849,6 +849,118 @@ bool test_state_commitment_chain()
     printf("  Result: %s\n", pass ? "PASS" : "FAIL");
     return pass;
 }
+/* ======================================================================== */
+/* Tests 15-18: State-bound verifier                                        */
+/* ======================================================================== */
+
+template<typename ppT>
+bool verify_state_bound_chain(
+    const state_transition_circuit<libff::Fr<ppT> > &st,
+    const std::vector<std::vector<libff::Fr<ppT> > > &states,
+    const std::vector<std::vector<libff::Fr<ppT> > > &transitions)
+{
+    typedef libff::Fr<ppT> FieldT;
+    const size_t B = transitions.size();
+    const std::vector<std::vector<FieldT> > witnesses(B);
+    const auto kp = r1cs_uvc_ppzksnark_generator<ppT>(st, B, true);
+    libff::G1<ppT> D_prev = libff::G1<ppT>::zero();
+    r1cs_uvc_ppzksnark_proof<ppT> previous_proof;
+    bool pass = true;
+
+    for (size_t step = 1; step <= B; ++step) {
+        const auto assign = build_composed_assignment(st, step, states, transitions, witnesses);
+        const auto proof = r1cs_uvc_ppzksnark_prover<ppT>(
+            kp.pk, step, assign.first, assign.second,
+            step == 1 ? nullptr : &previous_proof);
+        const bool accepted = r1cs_uvc_ppzksnark_verifier<ppT>(
+            kp.vk, step, assign.first, states[step], proof, D_prev);
+        printf("  Step %zu: state-bound verify=%s\n", step, accepted ? "PASS" : "FAIL");
+        pass &= accepted;
+        if (accepted) {
+            D_prev = proof.g_D;
+        }
+        previous_proof = proof;
+    }
+
+    return pass;
+}
+
+template<typename ppT>
+bool test_state_bound_verifier_completeness()
+{
+    typedef libff::Fr<ppT> FieldT;
+    printf("\n--- test_state_bound_verifier_completeness ---\n");
+
+    const std::vector<std::vector<FieldT> > multiplier_states = {
+        {FieldT(3)}, {FieldT(15)}, {FieldT(105)}, {FieldT(210)}
+    };
+    const std::vector<std::vector<FieldT> > multiplier_transitions = {
+        {FieldT(5)}, {FieldT(7)}, {FieldT(2)}
+    };
+    const std::vector<std::vector<FieldT> > two_state_states = {
+        {FieldT(2), FieldT(3)}, {FieldT(10), FieldT(15)},
+        {FieldT(30), FieldT(45)}, {FieldT(60), FieldT(90)}
+    };
+    const std::vector<std::vector<FieldT> > two_state_transitions = {
+        {FieldT(5)}, {FieldT(3)}, {FieldT(2)}
+    };
+
+    const bool pass =
+        verify_state_bound_chain<ppT>(
+            make_multiplier<FieldT>(), multiplier_states, multiplier_transitions) &&
+        verify_state_bound_chain<ppT>(
+            make_two_state_mult<FieldT>(), two_state_states, two_state_transitions);
+    printf("  Result: %s\n", pass ? "PASS" : "FAIL");
+    return pass;
+}
+
+template<typename ppT>
+bool test_state_bound_negative_wrong_reported_state()
+{
+    typedef libff::Fr<ppT> FieldT;
+    printf("\n--- test_state_bound_negative_wrong_reported_state ---\n");
+    multiplier_fixture<ppT> fix(true);
+
+    std::vector<FieldT> reported = fix.states[2];
+    reported[0] += FieldT::one();
+    const bool rejected = !r1cs_uvc_ppzksnark_verifier<ppT>(
+        fix.kp.vk, 2, fix.primaries[1], reported, fix.proofs[1], fix.proofs[0].g_D);
+    printf("  Wrong reported state rejected=%s\n", rejected ? "PASS" : "FAIL");
+    return rejected;
+}
+
+template<typename ppT>
+bool test_state_bound_negative_tampered_gD()
+{
+    printf("\n--- test_state_bound_negative_tampered_gD ---\n");
+    multiplier_fixture<ppT> fix(true);
+
+    r1cs_uvc_ppzksnark_proof<ppT> tampered = fix.proofs[1];
+    const libff::G1<ppT> delta = libff::G1<ppT>::one();
+    tampered.g_D = tampered.g_D + delta;
+    const bool tampered_rejected = !r1cs_uvc_ppzksnark_verifier<ppT>(
+        fix.kp.vk, 2, fix.primaries[1], fix.states[2], tampered, fix.proofs[0].g_D);
+
+    const libff::G1<ppT> forged_D_prev = fix.proofs[0].g_D + delta;
+    const bool wrong_track_rejected = !r1cs_uvc_ppzksnark_verifier<ppT>(
+        fix.kp.vk, 2, fix.primaries[1], fix.states[2], tampered, forged_D_prev);
+    const bool pass = tampered_rejected && wrong_track_rejected;
+    printf("  Tampered g_D rejected=%s, consistent wrong track rejected=%s\n",
+           tampered_rejected ? "PASS" : "FAIL", wrong_track_rejected ? "PASS" : "FAIL");
+    return pass;
+}
+
+template<typename ppT>
+bool test_state_bound_mismatched_step()
+{
+    printf("\n--- test_state_bound_mismatched_step ---\n");
+    multiplier_fixture<ppT> fix(true);
+
+    const bool rejected = !r1cs_uvc_ppzksnark_verifier<ppT>(
+        fix.kp.vk, 3, fix.primaries[1], fix.states[2], fix.proofs[1], fix.proofs[0].g_D);
+    printf("  Proof 2 verified as step 3 rejected=%s\n", rejected ? "PASS" : "FAIL");
+    return rejected;
+}
 
 
 
@@ -888,6 +1000,10 @@ int main()
     all_pass &= test_incremental_valid<libff::alt_bn128_pp>();
     all_pass &= test_partial_B<libff::alt_bn128_pp>();
     all_pass &= test_state_commitment_chain<libff::alt_bn128_pp>();
+    all_pass &= test_state_bound_verifier_completeness<libff::alt_bn128_pp>();
+    all_pass &= test_state_bound_negative_wrong_reported_state<libff::alt_bn128_pp>();
+    all_pass &= test_state_bound_negative_tampered_gD<libff::alt_bn128_pp>();
+    all_pass &= test_state_bound_mismatched_step<libff::alt_bn128_pp>();
 
     printf("\n================================================================\n");
     printf("r1cs_uvc_ppzksnark_prover & verifier: %s\n", all_pass ? "ALL PASSED" : "SOME FAILED");

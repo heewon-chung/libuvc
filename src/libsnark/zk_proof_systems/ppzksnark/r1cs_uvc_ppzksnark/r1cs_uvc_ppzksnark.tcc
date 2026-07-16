@@ -786,6 +786,98 @@ bool r1cs_uvc_ppzksnark_verifier(
 
     return result;
 }
+template <typename ppT>
+bool r1cs_uvc_ppzksnark_verifier(
+    const r1cs_uvc_ppzksnark_verification_key<ppT> &vk,
+    size_t step,
+    const r1cs_uvc_ppzksnark_primary_input<ppT> &primary_input,
+    const std::vector<libff::Fr<ppT> > &reported_s_j,
+    const r1cs_uvc_ppzksnark_proof<ppT> &proof,
+    const libff::G1<ppT> &D_prev)
+{
+    libff::enter_block("Call to r1cs_uvc_ppzksnark_state_bound_verifier");
+
+    if (!vk.bind_state || !proof.bind_state)
+    {
+        if (!libff::inhibit_profiling_info) {
+            libff::print_indent(); printf("State-bound verification requires a state-bound key and proof.\n");
+        }
+        libff::leave_block("Call to r1cs_uvc_ppzksnark_state_bound_verifier");
+        return false;
+    }
+
+    if (proof.step != step || step < 1 || step > vk.max_compositions)
+    {
+        if (!libff::inhibit_profiling_info) {
+            libff::print_indent(); printf("Proof step does not match a valid verification step.\n");
+        }
+        libff::leave_block("Call to r1cs_uvc_ppzksnark_state_bound_verifier");
+        return false;
+    }
+
+    if (reported_s_j.size() != vk.state_size)
+    {
+        if (!libff::inhibit_profiling_info) {
+            libff::print_indent(); printf("Reported state has incorrect size.\n");
+        }
+        libff::leave_block("Call to r1cs_uvc_ppzksnark_state_bound_verifier");
+        return false;
+    }
+
+    if (!proof.is_well_formed() || !D_prev.is_well_formed())
+    {
+        if (!libff::inhibit_profiling_info) {
+            libff::print_indent(); printf("At least one proof or previous commitment element does not lie on the curve.\n");
+        }
+        libff::leave_block("Call to r1cs_uvc_ppzksnark_state_bound_verifier");
+        return false;
+    }
+
+    libff::G1<ppT> expected_increment = libff::G1<ppT>::zero();
+    const size_t state_offset = (step - 1) * vk.state_size;
+    for (size_t i = 0; i < vk.state_size; ++i) {
+        expected_increment = expected_increment +
+            reported_s_j[i] * vk.st_ABC_g1[state_offset + i];
+    }
+    if (proof.g_D - D_prev != expected_increment)
+    {
+        if (!libff::inhibit_profiling_info) {
+            libff::print_indent(); printf("State commitment increment check failed.\n");
+        }
+        libff::leave_block("Call to r1cs_uvc_ppzksnark_state_bound_verifier");
+        return false;
+    }
+
+    const accumulation_vector<libff::G1<ppT> > accumulated_IC =
+        vk.gamma_ABC_g1.template accumulate_chunk<libff::Fr<ppT> >(
+            primary_input.begin(), primary_input.end(), 0);
+    const libff::G1<ppT> &acc = accumulated_IC.first;
+
+    const libff::G1_precomp<ppT> proof_g_A_precomp = ppT::precompute_G1(proof.g_A);
+    const libff::G2_precomp<ppT> proof_g_B_precomp = ppT::precompute_G2(proof.g_B);
+    const libff::G1_precomp<ppT> proof_g_C_precomp = ppT::precompute_G1(proof.g_C);
+    const libff::G1_precomp<ppT> proof_g_D_precomp = ppT::precompute_G1(proof.g_D);
+    const libff::G1_precomp<ppT> acc_precomp = ppT::precompute_G1(acc);
+    const libff::G2_precomp<ppT> gamma_g2_precomp = ppT::precompute_G2(vk.gamma_g2);
+    const libff::G2_precomp<ppT> delta_g2_precomp = ppT::precompute_G2(vk.delta_g2);
+    const libff::G2_precomp<ppT> eta_g2_precomp = ppT::precompute_G2(vk.eta_g2);
+
+    /* AC3: exactly four pairings: A·B, acc·gamma, C·delta, and D·eta. */
+    const libff::Fqk<ppT> QAP1 = ppT::miller_loop(proof_g_A_precomp, proof_g_B_precomp);
+    const libff::Fqk<ppT> QAP23 = ppT::double_miller_loop(
+        acc_precomp, gamma_g2_precomp, proof_g_C_precomp, delta_g2_precomp);
+    const libff::Fqk<ppT> QAP4 = ppT::miller_loop(proof_g_D_precomp, eta_g2_precomp);
+    const libff::GT<ppT> QAP = ppT::final_exponentiation(
+        QAP1 * (QAP23 * QAP4).unitary_inverse());
+
+    const bool result = (QAP == vk.alpha_g1_beta_g2);
+    if (!result && !libff::inhibit_profiling_info) {
+        libff::print_indent(); printf("QAP divisibility check failed.\n");
+    }
+
+    libff::leave_block("Call to r1cs_uvc_ppzksnark_state_bound_verifier");
+    return result;
+}
 
 
 } // libsnark
