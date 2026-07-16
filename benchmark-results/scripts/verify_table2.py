@@ -56,14 +56,20 @@ def verify(input_path):
 
     # Index rows by scheme and benchmark coordinate.  Legacy UVC CSVs do not
     # carry a scheme column, so retain their historical meaning explicitly.
+    # Standalone Groth16/Nova rows produced by merge_results.py carry no B
+    # (they are per-(circuit,n,step)), so they get a separate B-free index
+    # instead of being discarded.
     data = {}
+    data_nb = {}
     schemes = set()
     for r in rows:
         scheme = r.get('scheme') or 'uvc_prefix'
-        if not r.get('B'):
-            continue
-        key = (scheme, r['circuit'], int(r['n']), int(r['B']), int(r['step']))
-        data[key] = r
+        if r.get('B'):
+            key = (scheme, r['circuit'], int(r['n']), int(r['B']), int(r['step']))
+            data[key] = r
+        else:
+            key = (scheme, r['circuit'], int(r['n']), int(r['step']))
+            data_nb[key] = r
         schemes.add(scheme)
 
     total_checks = 0
@@ -77,14 +83,17 @@ def verify(input_path):
 
         for scheme in sorted(schemes):
             scheme_prefix = "" if schemes == {'uvc_prefix'} else f"{scheme} "
-            if not any((scheme, circuit, n, B, step) in data for step in expected_steps):
+
+            def row_for(step):
+                return data.get((scheme, circuit, n, B, step))
+
+            if not any(row_for(step) is not None for step in expected_steps):
                 continue
 
-            # Check all expected steps exist for every UVC scheme independently.
+            # Check all expected steps exist for every scheme independently.
             missing_steps = []
             for step in expected_steps:
-                key = (scheme, circuit, n, B, step)
-                if key not in data:
+                if row_for(step) is None:
                     missing_steps.append(step)
 
             total_checks += 1
@@ -97,16 +106,16 @@ def verify(input_path):
 
             config_ok = True
             for step in expected_steps:
-                r = data[(scheme, circuit, n, B, step)]
+                r = row_for(step)
                 issues = []
 
-                if scheme == 'groth16':
-                    g16_prove = float(r.get('g16_prove_ms', r.get('prove_ms', 0)))
-                    g16_proof = int(r.get('g16_proof_bytes', r.get('proof_bytes', 0)))
+                if scheme in ('groth16', 'nova'):
+                    g16_prove = float(r.get('g16_prove_ms') or r.get('prove_ms') or 0)
+                    g16_proof = int(r.get('g16_proof_bytes') or r.get('proof_bytes') or 0)
                     if g16_prove <= 0:
-                        issues.append(f"g16_prove_ms={g16_prove}")
-                    if g16_proof != 128:
-                        issues.append(f"g16_proof_bytes={g16_proof} (expected 128)")
+                        issues.append(f"prove_ms={g16_prove}")
+                    if scheme == 'groth16' and g16_proof != 128:
+                        issues.append(f"proof_bytes={g16_proof} (expected 128)")
                 else:
                     uvc_setup = float(r.get('uvc_setup_ms', r.get('setup_ms', 0)))
                     uvc_prove = float(r.get('uvc_prove_ms', r.get('prove_ms', 0)))
@@ -122,6 +131,13 @@ def verify(input_path):
                     if uvc_proof != expected_uvc_proof:
                         issues.append(
                             f"uvc_proof_bytes={uvc_proof} (expected {expected_uvc_proof})")
+                    # Wide merged UVC rows embed Groth16 columns; keep the
+                    # Groth16 hard gate on them when present.
+                    g16_embedded = r.get('g16_proof_bytes')
+                    if g16_embedded not in (None, ''):
+                        if int(g16_embedded) != 128:
+                            issues.append(
+                                f"g16_proof_bytes={g16_embedded} (expected 128)")
 
                 if issues:
                     config_ok = False
@@ -134,6 +150,35 @@ def verify(input_path):
                 print(f"  PASS  {scheme_prefix}{config_label}: {len(expected_steps)} steps OK")
             else:
                 total_fail += 1
+    # B-free standalone rows (Groth16/Nova from merge_results.py) are shared
+    # across B configs, so validate their values once per (scheme, circuit, n)
+    # instead of demanding per-B step completeness.
+    nb_groups = {}
+    for (scheme, circuit, n, step), r in data_nb.items():
+        nb_groups.setdefault((scheme, circuit, n), []).append((step, r))
+
+    for (scheme, circuit, n) in sorted(nb_groups.keys()):
+        group_label = f"{scheme} {circuit} n={n} (per-step rows)"
+        total_checks += 1
+        group_ok = True
+        for step, r in sorted(nb_groups[(scheme, circuit, n)]):
+            issues = []
+            prove = float(r.get('g16_prove_ms') or r.get('prove_ms') or 0)
+            proof = int(r.get('g16_proof_bytes') or r.get('proof_bytes') or 0)
+            if prove <= 0:
+                issues.append(f"prove_ms={prove}")
+            if scheme == 'groth16' and proof != 128:
+                issues.append(f"proof_bytes={proof} (expected 128)")
+            if issues:
+                group_ok = False
+                msg = f"  FAIL  {group_label} step={step}: {', '.join(issues)}"
+                failures.append(msg)
+                print(msg)
+        if group_ok:
+            total_pass += 1
+            print(f"  PASS  {group_label}: {len(nb_groups[(scheme, circuit, n)])} rows OK")
+        else:
+            total_fail += 1
 
     # Summary
     print()
