@@ -163,7 +163,11 @@ def verify(input_path):
         group_ok = True
         for step, r in sorted(nb_groups[(scheme, circuit, n)]):
             issues = []
-            prove = float(r.get('g16_prove_ms') or r.get('prove_ms') or 0)
+            if scheme == 'nova':
+                prove = float(r.get('nova_fold_ms') or r.get('fold_ms')
+                              or r.get('prove_ms') or 0)
+            else:
+                prove = float(r.get('g16_prove_ms') or r.get('prove_ms') or 0)
             proof = int(r.get('g16_proof_bytes') or r.get('proof_bytes') or 0)
             if prove <= 0:
                 issues.append(f"prove_ms={prove}")
