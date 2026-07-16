@@ -152,7 +152,7 @@ public:
     void print_size() const
     {
         libff::print_indent(); printf("* UVC VK: %zu max steps\n", max_compositions);
-        libff::print_indent(); printf("* G2 elements in VK: %zu\n", bind_state ? 3 : 2);
+        libff::print_indent(); printf("* G2 elements in VK: %d\n", bind_state ? 3 : 2);
         libff::print_indent(); printf("* GT elements in VK: 1\n");
         libff::print_indent(); printf("* gamma_ABC size: %zu\n", gamma_ABC_g1.size());
         if (bind_state) {

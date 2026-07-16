@@ -108,6 +108,45 @@ std::vector<size_t> uvc_state_output_indices(
     return result;
 }
 
+/*
+ * Precomputed per-wire class table for the composed circuit C_B.
+ * Index by composed wire number 1..total_vars (index 0 is the constant
+ * wire and is set to io as a placeholder; callers must not query it).
+ *
+ * Use this table instead of repeated uvc_wire_class_of() calls when
+ * classifying many wires: uvc_wire_class_of() rebuilds the I^st index
+ * vector on every call (O(B*state_size)), which is prohibitive inside
+ * generator loops over all wires.
+ */
+template<typename FieldT>
+std::vector<uvc_wire_class> uvc_wire_classes(
+    const state_transition_circuit<FieldT> &st_circuit,
+    const size_t B)
+{
+    assert(B >= 1);
+
+    const size_t total_vars = st_circuit.wires_per_step() +
+                              (B - 1) * st_circuit.num_new_wires_per_step();
+    const size_t num_inputs = st_circuit.state_size + st_circuit.transition_size;
+
+    std::vector<uvc_wire_class> classes(total_vars + 1, uvc_wire_class::wt);
+    classes[0] = uvc_wire_class::io; /* constant-wire placeholder; do not query */
+
+    for (size_t wire = 1; wire <= num_inputs; ++wire) {
+        classes[wire] = uvc_wire_class::io;
+    }
+    for (const size_t wire : uvc_state_output_indices(st_circuit, B)) {
+        classes[wire] = uvc_wire_class::st;
+    }
+
+    return classes;
+}
+
+/*
+ * Point query for a single wire's class. NOTE: rebuilds the I^st index
+ * vector on every call (O(B*state_size)); for bulk classification use
+ * uvc_wire_classes() instead.
+ */
 template<typename FieldT>
 uvc_wire_class uvc_wire_class_of(
     const state_transition_circuit<FieldT> &st_circuit,
@@ -148,13 +187,16 @@ bool uvc_check_track_disjointness(
         return false;
     }
 
+    const std::vector<uvc_wire_class> classes = uvc_wire_classes(st_circuit, B);
+    const size_t num_inputs = st_circuit.state_size + st_circuit.transition_size;
+    const std::vector<size_t> state_indices = uvc_state_output_indices(st_circuit, B);
+
     for (size_t wire = 1; wire <= total_vars; ++wire) {
         size_t membership_count = 0;
-        const uvc_wire_class wire_class =
-            uvc_wire_class_of(st_circuit, B, wire);
-        membership_count += (wire_class == uvc_wire_class::io);
-        membership_count += (wire_class == uvc_wire_class::st);
-        membership_count += (wire_class == uvc_wire_class::wt);
+        membership_count += (wire <= num_inputs);
+        membership_count += std::binary_search(state_indices.begin(),
+                                               state_indices.end(), wire);
+        membership_count += (classes[wire] == uvc_wire_class::wt);
         if (membership_count != 1) {
             return false;
         }

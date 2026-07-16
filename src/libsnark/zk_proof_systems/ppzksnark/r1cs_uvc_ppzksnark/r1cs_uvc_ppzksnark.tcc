@@ -314,6 +314,10 @@ r1cs_uvc_ppzksnark_keypair<ppT> r1cs_uvc_ppzksnark_generator(
 
     const std::vector<size_t> state_output_indices =
         bind_state ? uvc_state_output_indices(st_circuit, B) : std::vector<size_t>();
+    /* Precomputed once: per-wire class table (uvc_wire_class_of would rebuild
+       the I^st index vector on every call inside the loops below). */
+    const std::vector<uvc_wire_class> wire_classes =
+        bind_state ? uvc_wire_classes(st_circuit, B) : std::vector<uvc_wire_class>();
     /* ===== L query from C_B: [(beta*u_i + alpha*v_i + w_i)/delta]_1 for witness wires ===== */
     libff::enter_block("Encode L query from C_B");
     const size_t num_inputs_B = qap_B.num_inputs();
@@ -321,8 +325,7 @@ r1cs_uvc_ppzksnark_keypair<ppT> r1cs_uvc_ppzksnark_generator(
     std::vector<FieldT> Lt;
     Lt.reserve(qap_B.num_variables() - num_inputs_B);
     for (size_t i = Lt_offset; i < qap_B.num_variables() + 1; ++i) {
-        const uvc_wire_class wire_class = uvc_wire_class_of(st_circuit, B, i);
-        Lt.emplace_back(bind_state && wire_class == uvc_wire_class::st
+        Lt.emplace_back(bind_state && wire_classes[i] == uvc_wire_class::st
                         ? FieldT::zero()
                         : (beta * At[i] + alpha * Bt[i] + Ct[i]) * delta_inverse);
     }
@@ -365,7 +368,7 @@ r1cs_uvc_ppzksnark_keypair<ppT> r1cs_uvc_ppzksnark_generator(
             state_output_indices.size() == B * ss &&
             st_query.size() == state_output_indices.size();
         for (size_t i = 1; i <= qap_B.num_variables() && tracks_are_disjoint; ++i) {
-            const uvc_wire_class wire_class = uvc_wire_class_of(st_circuit, B, i);
+            const uvc_wire_class wire_class = wire_classes[i];
             if (wire_class == uvc_wire_class::io) {
                 tracks_are_disjoint = (i <= num_inputs_B);
             } else if (wire_class == uvc_wire_class::st) {
@@ -407,8 +410,7 @@ r1cs_uvc_ppzksnark_keypair<ppT> r1cs_uvc_ppzksnark_generator(
         new_Lt.reserve(new_count);
         for (size_t i = 0; i < new_count; ++i) {
             const size_t qi = new_start_qap + i;
-            const uvc_wire_class wire_class = uvc_wire_class_of(st_circuit, B, qi);
-            new_Lt.emplace_back(bind_state && wire_class == uvc_wire_class::st
+            new_Lt.emplace_back(bind_state && wire_classes[qi] == uvc_wire_class::st
                                 ? FieldT::zero()
                                 : (beta * At[qi] + alpha * Bt[qi] + Ct[qi]) * delta_inverse);
         }
