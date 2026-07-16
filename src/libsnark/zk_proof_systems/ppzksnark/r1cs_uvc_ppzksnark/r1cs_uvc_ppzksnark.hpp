@@ -68,6 +68,8 @@ struct uvc_step_proving_data {
 
     /* G1 elements [(beta*u_i(x) + alpha*v_i(x) + w_i(x))/delta]_1 for new witness wires */
     libff::G1_vector<ppT> L_query_delta;
+    /* G1 elements [(beta*u_i(x) + alpha*v_i(x) + w_i(x))/eta]_1 for new state-output wires */
+    libff::G1_vector<ppT> st_query_delta;
 
     uvc_step_proving_data() : new_wire_start(0), new_wire_count(0), new_io_count(0), new_wt_count(0) {}
 };
@@ -89,20 +91,27 @@ public:
 
     /* H-query for the full domain (degree Bn-2): [x^i * Z(t) / delta]_1 */
     libff::G1_vector<ppT> H_query_full;
+    /* G1 elements [(beta*u_i(x) + alpha*v_i(x) + w_i(x))/eta]_1 for all I^st wires */
+    libff::G1_vector<ppT> st_query;
 
     /* Maximum number of compositions */
     size_t max_compositions;
+    /* Whether this key carries the eta state-binding track. */
+    bool bind_state;
 
     /* State transition circuit description */
     state_transition_circuit<libff::Fr<ppT> > st_circuit;
 
-    r1cs_uvc_ppzksnark_proving_key() : max_compositions(0) {}
+    r1cs_uvc_ppzksnark_proving_key() : max_compositions(0), bind_state(false) {}
 
     void print_size() const
     {
         libff::print_indent(); printf("* UVC max compositions (B): %zu\n", max_compositions);
         base_pk.print_size();
         libff::print_indent(); printf("* H_query_full size: %zu\n", H_query_full.size());
+        if (bind_state) {
+            libff::print_indent(); printf("* st_query size: %zu\n", st_query.size());
+        }
         for (size_t j = 0; j < step_data.size(); ++j)
         {
             libff::print_indent(); printf("* Step %zu: %zu new wires (%zu io, %zu wt)\n",
@@ -121,22 +130,36 @@ public:
     libff::GT<ppT> alpha_g1_beta_g2;
     libff::G2<ppT> gamma_g2;
     libff::G2<ppT> delta_g2;
+    libff::G2<ppT> eta_g2;
 
     /* Accumulation vector for public input wires (s_0, t_1).
        Fixed across all steps since the public inputs are always
        the initial state and first transition. */
     accumulation_vector<libff::G1<ppT> > gamma_ABC_g1;
+    /* State-output wire commitments [(beta*u_i + alpha*v_i + w_i)/eta]_1 in I^st order */
+    libff::G1_vector<ppT> st_ABC_g1;
 
     size_t max_compositions;
+    bool bind_state;
+    size_t state_size;
+    size_t transition_size;
+    size_t new_per_step;
 
-    r1cs_uvc_ppzksnark_verification_key() : max_compositions(0) {}
+    r1cs_uvc_ppzksnark_verification_key() :
+        max_compositions(0), bind_state(false),
+        state_size(0), transition_size(0), new_per_step(0) {}
 
     void print_size() const
     {
         libff::print_indent(); printf("* UVC VK: %zu max steps\n", max_compositions);
-        libff::print_indent(); printf("* G2 elements in VK: 2\n");
+        libff::print_indent(); printf("* G2 elements in VK: %zu\n", bind_state ? 3 : 2);
         libff::print_indent(); printf("* GT elements in VK: 1\n");
         libff::print_indent(); printf("* gamma_ABC size: %zu\n", gamma_ABC_g1.size());
+        if (bind_state) {
+            libff::print_indent(); printf("* st_ABC size: %zu\n", st_ABC_g1.size());
+            libff::print_indent(); printf("* State layout: state=%zu, transition=%zu, new/step=%zu\n",
+                                         state_size, transition_size, new_per_step);
+        }
     }
 };
 
@@ -173,10 +196,13 @@ public:
     /* Step index (which composition step this proof is for) */
     size_t step;
 
+    /* State-binding commitment; present only when bind_state is true. */
+    bool bind_state;
+    libff::G1<ppT> g_D;
+
     /* Cached h(x) polynomial coefficients for incremental update */
     std::vector<libff::Fr<ppT> > cached_h_coefficients;
-
-    r1cs_uvc_ppzksnark_proof() : step(0)
+    r1cs_uvc_ppzksnark_proof() : step(0), bind_state(false), g_D(libff::G1<ppT>::zero())
     {
         g_A = libff::G1<ppT>::one();
         g_B = libff::G2<ppT>::one();
@@ -189,9 +215,10 @@ public:
                               size_t step,
                               std::vector<libff::Fr<ppT> > &&cached_h) :
         g_A(std::move(g_A)), g_B(std::move(g_B)), g_C(std::move(g_C)),
-        step(step), cached_h_coefficients(std::move(cached_h)) {}
+        step(step), bind_state(false), g_D(libff::G1<ppT>::zero()),
+        cached_h_coefficients(std::move(cached_h)) {}
 
-    size_t G1_size() const { return 2; }
+    size_t G1_size() const { return bind_state ? 3 : 2; }
     size_t G2_size() const { return 1; }
 
     size_t size_in_bits() const
@@ -206,11 +233,13 @@ public:
         libff::print_indent(); printf("* G2 elements in proof: %zu\n", G2_size());
         libff::print_indent(); printf("* Proof size in bits: %zu\n", size_in_bits());
         libff::print_indent(); printf("* Cached h poly size: %zu\n", cached_h_coefficients.size());
+        libff::print_indent(); printf("* State binding: %s\n", bind_state ? "present" : "absent");
     }
 
     bool is_well_formed() const
     {
-        return (g_A.is_well_formed() && g_B.is_well_formed() && g_C.is_well_formed());
+        return (g_A.is_well_formed() && g_B.is_well_formed() && g_C.is_well_formed() &&
+                (!bind_state || g_D.is_well_formed()));
     }
 };
 
@@ -226,7 +255,8 @@ public:
 template<typename ppT>
 r1cs_uvc_ppzksnark_keypair<ppT> r1cs_uvc_ppzksnark_generator(
     const state_transition_circuit<libff::Fr<ppT> > &st_circuit,
-    size_t B);
+    size_t B,
+    bool bind_state = false);
 
 /**
  * UVC.Prove: Generate or incrementally update a proof.

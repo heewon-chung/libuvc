@@ -12,7 +12,9 @@ for the R1CS Updatable Verifiable Computation (UVC) scheme.
 #ifndef R1CS_UVC_PPZKSNARK_PARAMS_HPP_
 #define R1CS_UVC_PPZKSNARK_PARAMS_HPP_
 
+#include <algorithm>
 #include <vector>
+#include <cassert>
 
 #include <libff/algebra/curves/public_params.hpp>
 
@@ -73,6 +75,93 @@ struct state_transition_circuit {
                              size_t transition_size) :
         base_cs(base_cs), state_size(state_size), transition_size(transition_size) {}
 };
+enum class uvc_wire_class {
+    io,
+    st,
+    wt
+};
+
+/*
+ * Returns I^st in increasing composed-wire order. The position for state
+ * component i (0-based) of step k (1-based) is (k - 1) * state_size + i.
+ */
+template<typename FieldT>
+std::vector<size_t> uvc_state_output_indices(
+    const state_transition_circuit<FieldT> &st_circuit,
+    const size_t B)
+{
+    assert(B >= 1);
+
+    const size_t ss = st_circuit.state_size;
+    const size_t ts = st_circuit.transition_size;
+    const size_t new_per_step = st_circuit.num_new_wires_per_step();
+    std::vector<size_t> result;
+    result.reserve(B * ss);
+
+    for (size_t k = 1; k <= B; ++k) {
+        const size_t output_start = (k - 1) * new_per_step + ss + ts + 1;
+        for (size_t i = 0; i < ss; ++i) {
+            result.emplace_back(output_start + i);
+        }
+    }
+
+    return result;
+}
+
+template<typename FieldT>
+uvc_wire_class uvc_wire_class_of(
+    const state_transition_circuit<FieldT> &st_circuit,
+    const size_t B,
+    const size_t wire_index)
+{
+    assert(B >= 1);
+    assert(wire_index != 0);
+
+    assert(wire_index <= st_circuit.wires_per_step() +
+                         (B - 1) * st_circuit.num_new_wires_per_step());
+
+    if (wire_index <= st_circuit.state_size + st_circuit.transition_size) {
+        return uvc_wire_class::io;
+    }
+
+    const std::vector<size_t> state_indices = uvc_state_output_indices(st_circuit, B);
+    if (std::binary_search(state_indices.begin(), state_indices.end(), wire_index)) {
+        return uvc_wire_class::st;
+    }
+
+    return uvc_wire_class::wt;
+}
+
+/*
+ * Checks that I^io, I^st, and I^wt are a disjoint cover of the composed
+ * non-constant wires. Track encoding checks are performed by the generator.
+ */
+template<typename FieldT>
+bool uvc_check_track_disjointness(
+    const state_transition_circuit<FieldT> &st_circuit,
+    const size_t B,
+    const size_t total_vars)
+{
+    if (B == 0 ||
+        total_vars != st_circuit.wires_per_step() +
+                      (B - 1) * st_circuit.num_new_wires_per_step()) {
+        return false;
+    }
+
+    for (size_t wire = 1; wire <= total_vars; ++wire) {
+        size_t membership_count = 0;
+        const uvc_wire_class wire_class =
+            uvc_wire_class_of(st_circuit, B, wire);
+        membership_count += (wire_class == uvc_wire_class::io);
+        membership_count += (wire_class == uvc_wire_class::st);
+        membership_count += (wire_class == uvc_wire_class::wt);
+        if (membership_count != 1) {
+            return false;
+        }
+    }
+
+    return true;
+}
 
 } // libsnark
 

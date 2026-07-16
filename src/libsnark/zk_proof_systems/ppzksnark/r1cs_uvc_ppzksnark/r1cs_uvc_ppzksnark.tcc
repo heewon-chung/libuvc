@@ -210,7 +210,8 @@ build_composed_assignment(
 template <typename ppT>
 r1cs_uvc_ppzksnark_keypair<ppT> r1cs_uvc_ppzksnark_generator(
     const state_transition_circuit<libff::Fr<ppT> > &st_circuit,
-    size_t B)
+    size_t B,
+    bool bind_state)
 {
     typedef libff::Fr<ppT> FieldT;
     libff::enter_block("Call to r1cs_uvc_ppzksnark_generator");
@@ -233,8 +234,10 @@ r1cs_uvc_ppzksnark_keypair<ppT> r1cs_uvc_ppzksnark_generator(
     const FieldT beta = FieldT::random_element();
     const FieldT gamma = FieldT::random_element();
     const FieldT delta = FieldT::random_element();
+    const FieldT eta = bind_state ? FieldT::random_element() : FieldT::zero();
     const FieldT gamma_inverse = gamma.inverse();
     const FieldT delta_inverse = delta.inverse();
+    const FieldT eta_inverse = bind_state ? eta.inverse() : FieldT::zero();
 
     /* Single QAP from C_B */
     qap_instance_evaluation<FieldT> qap_B = r1cs_to_qap_instance_map_with_evaluation(cs_B, t);
@@ -279,6 +282,10 @@ r1cs_uvc_ppzksnark_keypair<ppT> r1cs_uvc_ppzksnark_generator(
     libff::G2<ppT> beta_g2 = beta * g2_gen;
     libff::G2<ppT> delta_g2 = delta * g2_gen;
     libff::G2<ppT> gamma_g2 = gamma * g2_gen;
+    libff::G2<ppT> eta_g2 = libff::G2<ppT>::zero();
+    if (bind_state) {
+        eta_g2 = eta * g2_gen;
+    }
 
     /* ===== Full A query from C_B: [u_i(x)]_1 for ALL wires ===== */
     libff::enter_block("Encode full A query from C_B");
@@ -305,6 +312,8 @@ r1cs_uvc_ppzksnark_keypair<ppT> r1cs_uvc_ppzksnark_generator(
 #endif
     libff::leave_block("Encode H query from C_B domain");
 
+    const std::vector<size_t> state_output_indices =
+        bind_state ? uvc_state_output_indices(st_circuit, B) : std::vector<size_t>();
     /* ===== L query from C_B: [(beta*u_i + alpha*v_i + w_i)/delta]_1 for witness wires ===== */
     libff::enter_block("Encode L query from C_B");
     const size_t num_inputs_B = qap_B.num_inputs();
@@ -312,13 +321,31 @@ r1cs_uvc_ppzksnark_keypair<ppT> r1cs_uvc_ppzksnark_generator(
     std::vector<FieldT> Lt;
     Lt.reserve(qap_B.num_variables() - num_inputs_B);
     for (size_t i = Lt_offset; i < qap_B.num_variables() + 1; ++i) {
-        Lt.emplace_back((beta * At[i] + alpha * Bt[i] + Ct[i]) * delta_inverse);
+        const uvc_wire_class wire_class = uvc_wire_class_of(st_circuit, B, i);
+        Lt.emplace_back(bind_state && wire_class == uvc_wire_class::st
+                        ? FieldT::zero()
+                        : (beta * At[i] + alpha * Bt[i] + Ct[i]) * delta_inverse);
     }
     libff::G1_vector<ppT> L_query = batch_exp(g1_scalar_size, g1_window_size, g1_table, Lt);
 #ifdef USE_MIXED_ADDITION
     libff::batch_to_special<libff::G1<ppT> >(L_query);
 #endif
     libff::leave_block("Encode L query from C_B");
+    libff::G1_vector<ppT> st_query;
+    if (bind_state) {
+        /* ===== State-output query: [(beta*u_i + alpha*v_i + w_i)/eta]_1 for I^st ===== */
+        libff::enter_block("Encode state-output query from C_B");
+        std::vector<FieldT> st_scalars;
+        st_scalars.reserve(state_output_indices.size());
+        for (const size_t i : state_output_indices) {
+            st_scalars.emplace_back((beta * At[i] + alpha * Bt[i] + Ct[i]) * eta_inverse);
+        }
+        st_query = batch_exp(g1_scalar_size, g1_window_size, g1_table, st_scalars);
+#ifdef USE_MIXED_ADDITION
+        libff::batch_to_special<libff::G1<ppT> >(st_query);
+#endif
+        libff::leave_block("Encode state-output query from C_B");
+    }
 
     /* ===== gamma_ABC: [(beta*u_i + alpha*v_i + w_i)/gamma]_1 for public wires ===== */
     libff::enter_block("Encode gamma_ABC for verification");
@@ -332,6 +359,24 @@ r1cs_uvc_ppzksnark_keypair<ppT> r1cs_uvc_ppzksnark_generator(
     libff::G1_vector<ppT> gamma_ABC_g1_vals = batch_exp(g1_scalar_size, g1_window_size, g1_table, gamma_ABC_vals);
     accumulation_vector<libff::G1<ppT> > gamma_ABC_g1(std::move(gamma_ABC_g1_0), std::move(gamma_ABC_g1_vals));
     libff::leave_block("Encode gamma_ABC for verification");
+    if (bind_state) {
+        bool tracks_are_disjoint =
+            uvc_check_track_disjointness(st_circuit, B, qap_B.num_variables()) &&
+            state_output_indices.size() == B * ss &&
+            st_query.size() == state_output_indices.size();
+        for (size_t i = 1; i <= qap_B.num_variables() && tracks_are_disjoint; ++i) {
+            const uvc_wire_class wire_class = uvc_wire_class_of(st_circuit, B, i);
+            if (wire_class == uvc_wire_class::io) {
+                tracks_are_disjoint = (i <= num_inputs_B);
+            } else if (wire_class == uvc_wire_class::st) {
+                tracks_are_disjoint = (i > num_inputs_B &&
+                                       L_query[i - Lt_offset].is_zero());
+            } else {
+                tracks_are_disjoint = (i > num_inputs_B);
+            }
+        }
+        assert(tracks_are_disjoint);
+    }
 
     /* ===== Per-step incremental data for steps 2..B ===== */
     libff::enter_block("Build per-step incremental proving data");
@@ -361,8 +406,11 @@ r1cs_uvc_ppzksnark_keypair<ppT> r1cs_uvc_ppzksnark_generator(
         std::vector<FieldT> new_Lt;
         new_Lt.reserve(new_count);
         for (size_t i = 0; i < new_count; ++i) {
-            size_t qi = new_start_qap + i;
-            new_Lt.emplace_back((beta * At[qi] + alpha * Bt[qi] + Ct[qi]) * delta_inverse);
+            const size_t qi = new_start_qap + i;
+            const uvc_wire_class wire_class = uvc_wire_class_of(st_circuit, B, qi);
+            new_Lt.emplace_back(bind_state && wire_class == uvc_wire_class::st
+                                ? FieldT::zero()
+                                : (beta * At[qi] + alpha * Bt[qi] + Ct[qi]) * delta_inverse);
         }
 
         sd.A_query_delta = batch_exp(g1_scalar_size, g1_window_size, g1_table, new_At);
@@ -377,6 +425,15 @@ r1cs_uvc_ppzksnark_keypair<ppT> r1cs_uvc_ppzksnark_generator(
 #ifdef USE_MIXED_ADDITION
         libff::batch_to_special<libff::G1<ppT> >(sd.L_query_delta);
 #endif
+        if (bind_state) {
+            const size_t st_query_offset = (step - 1) * ss;
+            sd.st_query_delta.insert(sd.st_query_delta.end(),
+                                     st_query.begin() + st_query_offset,
+                                     st_query.begin() + st_query_offset + ss);
+#ifdef USE_MIXED_ADDITION
+            libff::batch_to_special<libff::G1<ppT> >(sd.st_query_delta);
+#endif
+        }
 
         step_data.push_back(std::move(sd));
     }
@@ -395,6 +452,10 @@ r1cs_uvc_ppzksnark_keypair<ppT> r1cs_uvc_ppzksnark_generator(
     pk.base_pk = std::move(base_pk);
     pk.step_data = std::move(step_data);
     pk.H_query_full = pk.base_pk.H_query; /* alias — same H query */
+    pk.bind_state = bind_state;
+    if (bind_state) {
+        pk.st_query = st_query;
+    }
     pk.max_compositions = B;
     pk.st_circuit = st_circuit;
 
@@ -402,8 +463,20 @@ r1cs_uvc_ppzksnark_keypair<ppT> r1cs_uvc_ppzksnark_generator(
     vk.alpha_g1_beta_g2 = alpha_g1_beta_g2;
     vk.gamma_g2 = gamma_g2;
     vk.delta_g2 = delta_g2;
+    vk.bind_state = bind_state;
+    if (bind_state) {
+        vk.eta_g2 = eta_g2;
+    }
     vk.gamma_ABC_g1 = std::move(gamma_ABC_g1);
+    if (bind_state) {
+        vk.st_ABC_g1 = st_query;
+    }
     vk.max_compositions = B;
+    if (bind_state) {
+        vk.state_size = ss;
+        vk.transition_size = ts;
+        vk.new_per_step = new_per_step;
+    }
 
     pk.print_size();
     vk.print_size();
