@@ -38,15 +38,18 @@ def merge_results(input_dir, output_path):
     uvc_rows = read_csv(os.path.join(input_dir, 'uvc_results.csv'))
     g16_rows = read_csv(os.path.join(input_dir, 'groth16_results.csv'))
     nova_rows = read_csv(os.path.join(input_dir, 'nova_results.csv'))
+    uvc_bound_rows = read_csv(os.path.join(input_dir, 'uvc_bound_results.csv'))
 
     # Deduplicate Groth16 (same circuit run under different B values produces dupes)
     g16_rows = dedup_groth16(g16_rows)
 
-    # UVC keyed by (circuit, n, B, step) — B is part of the key
+    # Preserve legacy and state-bound rows independently even when their
+    # benchmark coordinates are identical.
     uvc_by_key = {}
-    for r in uvc_rows:
-        key = (r['circuit'], r['n'], r['B'], r['step'])
-        uvc_by_key[key] = r
+    for scheme, rows in (('uvc_prefix', uvc_rows), ('uvc_bound', uvc_bound_rows)):
+        for r in rows:
+            key = (scheme, r['circuit'], r['n'], r['B'], r['step'])
+            uvc_by_key[key] = r
 
     # Groth16 keyed by (circuit, n, step)
     g16_by_key = {}
@@ -60,14 +63,15 @@ def merge_results(input_dir, output_path):
         key = (r.get('circuit', ''), r.get('n', ''), r.get('step', ''))
         nova_by_key[key] = r
 
-    # Collect all keys as (circuit, n, B, step) for UVC, and (circuit, n, step) for others
-    # Output one row per UVC (circuit, n, B, step), enriched with Groth16 and Nova
-    all_uvc_keys = sorted(uvc_by_key.keys(), key=lambda k: (k[0], int(k[1]), int(k[2]), int(k[3])))
+    # Output one row per UVC scheme and benchmark coordinate, enriched with
+    # Groth16 and Nova measurements.
+    all_uvc_keys = sorted(
+        uvc_by_key.keys(), key=lambda k: (k[1], int(k[2]), int(k[3]), int(k[4]), k[0]))
 
     with open(output_path, 'w', newline='') as f:
         writer = csv.writer(f)
         writer.writerow([
-            'circuit', 'n', 'B', 'step',
+            'scheme', 'circuit', 'n', 'B', 'step',
             'uvc_setup_ms', 'uvc_prove_ms', 'uvc_verify_ms',
             'uvc_crs_g1', 'uvc_crs_g2', 'uvc_proof_bytes', 'uvc_peak_mem_mb',
             'g16_setup_ms', 'g16_prove_ms', 'g16_verify_ms',
@@ -77,16 +81,18 @@ def merge_results(input_dir, output_path):
         ])
 
         for key in all_uvc_keys:
-            circuit, n, B, step = key
+            scheme, circuit, n, B, step = key
             uvc = uvc_by_key[key]
             g16_key = (circuit, n, step)
             g16 = g16_by_key.get(g16_key, {})
             nova = nova_by_key.get(g16_key, {})
 
             writer.writerow([
-                circuit, n, B, step,
+                scheme, circuit, n, B, step,
                 uvc.get('setup_ms', ''), uvc.get('prove_ms', ''),
-                uvc.get('verify_ms', ''), uvc.get('crs_g1', ''), uvc.get('crs_g2', ''),
+                uvc.get('verify_ms', ''),
+                uvc.get('crs_g1', uvc.get('crs_g1_published', '')),
+                uvc.get('crs_g2', ''),
                 uvc.get('proof_bytes', ''), uvc.get('peak_mem_mb', ''),
                 g16.get('setup_ms', ''), g16.get('prove_ms', ''),
                 g16.get('verify_ms', ''), g16.get('crs_g1', ''), g16.get('crs_g2', ''),
@@ -98,7 +104,7 @@ def merge_results(input_dir, output_path):
             ])
 
     print(f"Combined results written to {output_path}")
-    print(f"  UVC rows: {len(uvc_rows)}, Groth16 rows: {len(g16_rows)}, Nova rows: {len(nova_rows)}")
+    print(f"  UVC pre-fix rows: {len(uvc_rows)}, UVC state-bound rows: {len(uvc_bound_rows)}, Groth16 rows: {len(g16_rows)}, Nova rows: {len(nova_rows)}")
     print(f"  Total combined rows: {len(all_uvc_keys)}")
 
 

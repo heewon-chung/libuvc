@@ -7,15 +7,16 @@
 # and Nova.
 #
 # Usage:
-#   ./scripts/run_iot_benchmarks.sh              # Full run (K=4,6,8, B=64/256/1024, 10 reps)
-#   ./scripts/run_iot_benchmarks.sh --quick      # Smoke test (K=4 only, B=64, 2 reps)
+#   ./scripts/run_iot_benchmarks.sh              # Full state-bound paper-grade run
+#   ./scripts/run_iot_benchmarks.sh --legacy     # Pre-fix compatibility run
+#   ./scripts/run_iot_benchmarks.sh --quick      # Quick state-bound smoke test
 #   ./scripts/run_iot_benchmarks.sh --cpp-only   # C++ benchmarks only (UVC + Groth16)
 #   ./scripts/run_iot_benchmarks.sh --nova-only  # Nova benchmarks only (Rust)
 #   ./scripts/run_iot_benchmarks.sh --tables-only # Generate tables from existing CSVs
 #
 # Output:
 #   results/YYYY-MM-DD_HHMMSS_TAG/
-#     csv/uvc_results.csv
+#     csv/uvc_bound_results.csv (state-bound; uvc_results.csv with --legacy)
 #     csv/groth16_results.csv
 #     csv/nova_results.csv
 #     tables/*.tex
@@ -30,9 +31,11 @@ BUILD_DIR="$PROJECT_DIR/build"
 NOVA_DIR="$PROJECT_DIR/nova-bench"
 
 # ── Defaults ──────────────────────────────────────────────────────
-TAG="iot"
+TAG="paper_v2"
 REPS=10
 MODE="all"
+LEGACY=false
+QUICK=false
 
 # IoT sensor fusion configurations: (circuit, K, B)
 # K = number of sensors (constraints = K+1 per step)
@@ -74,6 +77,7 @@ NOVA_CONFIGS=(
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --quick)
+            QUICK=true
             TAG="iot-quick"
             REPS=2
             CONFIGS=(
@@ -86,6 +90,7 @@ while [[ $# -gt 0 ]]; do
             )
             shift
             ;;
+        --legacy)     LEGACY=true; shift ;;
         --cpp-only)   MODE="cpp"; shift ;;
         --nova-only)  MODE="nova"; shift ;;
         --tables-only) MODE="tables"; shift ;;
@@ -101,6 +106,25 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+if $LEGACY; then
+    if $QUICK; then
+        TAG="iot-quick_legacy"
+    else
+        TAG="paper_legacy"
+    fi
+    UVC_RESULTS="uvc_results.csv"
+    BENCH_MODE_ARGS=(--legacy)
+else
+    UVC_RESULTS="uvc_bound_results.csv"
+    BENCH_MODE_ARGS=()
+fi
+
+if $QUICK; then
+    BENCH_VERIFY_ARGS=(--verify-measured-only)
+else
+    BENCH_VERIFY_ARGS=()
+fi
+
 
 # ── Output directory ────────────────────────────────────────────────
 TIMESTAMP="$(date +%Y-%m-%d_%H%M%S)"
@@ -231,12 +255,13 @@ run_cpp() {
         run_bench "[$i/${#CONFIGS[@]}] $circuit K=$K B=$B" \
             "$BENCH" \
             --circuit "$circuit" --n "$K" --B "$B" \
-            --output-dir "$CSV_DIR" --reps "$REPS"
+            --output-dir "$CSV_DIR" --reps "$REPS" \
+            ${BENCH_MODE_ARGS[@]+"${BENCH_MODE_ARGS[@]}"} ${BENCH_VERIFY_ARGS[@]+"${BENCH_VERIFY_ARGS[@]}"}
     done
 
     echo ""
     echo "C++ IoT benchmarks complete."
-    echo "  UVC:     $CSV_DIR/uvc_results.csv"
+    echo "  UVC:     $CSV_DIR/$UVC_RESULTS"
     echo "  Groth16: $CSV_DIR/groth16_results.csv"
 }
 
@@ -280,8 +305,11 @@ run_tables() {
     echo "============================================================"
     echo ""
 
-    local MERGE_SCRIPT="$PROJECT_DIR/benchmark-results/scripts/merge_results.py"
-    local TABLE_SCRIPT="$PROJECT_DIR/benchmark-results/scripts/gen_latex_tables.py"
+    # These consumers receive the run's csv/ directory, which contains either
+    # the state-bound CSV or the explicitly requested legacy CSV.
+    local RESULTS_SCRIPTS_DIR="$PROJECT_DIR/benchmark-results/scripts"
+    local MERGE_SCRIPT="$RESULTS_SCRIPTS_DIR/merge_results.py"
+    local TABLE_SCRIPT="$RESULTS_SCRIPTS_DIR/gen_latex_tables.py"
     local SUMMARIZE="$SCRIPT_DIR/summarize_results.py"
 
     # Merge CSVs
@@ -318,8 +346,8 @@ case "$MODE" in
     nova)   build_all; run_nova ;;
     tables)
         # For --tables-only, look for existing CSVs
-        if [[ ! -f "$CSV_DIR/uvc_results.csv" ]]; then
-            LATEST="$(find "$PROJECT_DIR/results" -name "uvc_results.csv" -path "*iot*" -type f 2>/dev/null | head -1)"
+        if [[ ! -f "$CSV_DIR/$UVC_RESULTS" ]]; then
+            LATEST="$(find "$PROJECT_DIR/results" -name "$UVC_RESULTS" -type f 2>/dev/null | head -1)"
             if [[ -n "$LATEST" ]]; then
                 CSV_DIR="$(dirname "$LATEST")"
                 echo "  Using existing CSVs from: $CSV_DIR"

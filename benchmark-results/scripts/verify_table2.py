@@ -106,8 +106,10 @@ def verify(input_path):
                 issues.append(f"uvc_prove_ms={uvc_prove}")
             if uvc_verify <= 0 or uvc_verify > 10:
                 issues.append(f"uvc_verify_ms={uvc_verify} (expected 0<v<=10)")
-            if uvc_proof != 128:
-                issues.append(f"uvc_proof_bytes={uvc_proof} (expected 128)")
+            expected_uvc_proof = 160 if r.get('scheme') == 'uvc_bound' else 128
+            if uvc_proof != expected_uvc_proof:
+                issues.append(
+                    f"uvc_proof_bytes={uvc_proof} (expected {expected_uvc_proof})")
 
             # Groth16 checks (should have data for steps within limits)
             g16_prove = r.get('g16_prove_ms', '')

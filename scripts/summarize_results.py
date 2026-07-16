@@ -90,6 +90,7 @@ def load_all(csv_dir):
     uvc_rows = read_csv(os.path.join(csv_dir, "uvc_results.csv"))
     g16_rows = read_csv(os.path.join(csv_dir, "groth16_results.csv"))
     nova_rows = read_csv(os.path.join(csv_dir, "nova_results.csv"))
+    uvc_bound_rows = read_csv(os.path.join(csv_dir, "uvc_bound_results.csv"))
 
     # Index UVC by (circuit, n, B, step)
     uvc = {}
@@ -113,7 +114,15 @@ def load_all(csv_dir):
         key = (c, int(r["n"]), int(r["step"]))
         nova[key] = r
 
-    return uvc, g16, nova
+    # Keep state-bound rows separate: their schema deliberately differs from
+    # legacy UVC and identical benchmark keys must not overwrite each other.
+    uvc_bound = {}
+    for r in uvc_bound_rows:
+        c = normalize_circuit(r["circuit"])
+        key = (c, int(r["n"]), int(r["B"]), int(r["step"]))
+        uvc_bound[key] = r
+
+    return uvc, g16, nova, uvc_bound
 
 
 def get_circuit_configs(uvc):
@@ -594,12 +603,26 @@ TABLE_DEFS = [
     ("T06_memory",            "gen_memory_table",       ("uvc",)),
     ("T07_cumulative",        "gen_cumulative_table",   ("uvc", "g16", "nova")),
 ]
+def gen_state_bound_table(uvc, uvc_bound):
+    """Generate a labeled UVC comparison when state-bound results are present."""
+    headers = ["Scheme", "Circuit", "n", "B", "Step", "Prove (ms)", "Verify (ms)", "Proof (B)"]
+    rows = []
+    for label, data in (("UVC (pre-fix)", uvc), ("UVC (state-bound)", uvc_bound)):
+        for (circuit, n, B, step), row in sorted(data.items()):
+            rows.append([
+                label, CIRCUIT_DISPLAY.get(circuit, circuit), str(n), str(B), str(step),
+                fmt_ms(row.get("prove_ms")), fmt_ms(row.get("verify_ms")),
+                row.get("proof_bytes", "---"),
+            ])
+    return format_table("UVC Scheme Comparison", headers, rows)
+
+
 
 
 def save_tables(csv_dir, save_dir):
     """Save individual .txt table files and summary.txt to tables/ dir."""
-    uvc, g16, nova = load_all(csv_dir)
-    if not uvc:
+    uvc, g16, nova, uvc_bound = load_all(csv_dir)
+    if not uvc and not uvc_bound:
         print("No UVC data found.", file=sys.stderr)
         return
 
@@ -637,6 +660,13 @@ def save_tables(csv_dir, save_dir):
         print(f"  Saved: tables/{filename}.txt")
 
         all_tables.append(table_text)
+    if uvc_bound:
+        state_bound_table = gen_state_bound_table(uvc, uvc_bound)
+        state_bound_path = os.path.join(tables_dir, "T08_uvc_scheme_comparison.txt")
+        with open(state_bound_path, "w") as f:
+            f.write(state_bound_table)
+        print("  Saved: tables/T08_uvc_scheme_comparison.txt")
+        all_tables.append(state_bound_table)
 
     # Build summary.txt = system info + all tables
     summary_lines = []
@@ -676,9 +706,9 @@ def save_tables(csv_dir, save_dir):
 
 def print_summary(csv_dir):
     """Print full terminal summary."""
-    uvc, g16, nova = load_all(csv_dir)
+    uvc, g16, nova, uvc_bound = load_all(csv_dir)
 
-    if not uvc:
+    if not uvc and not uvc_bound:
         print("No UVC data found.")
         return
 
@@ -696,6 +726,8 @@ def print_summary(csv_dir):
     print(gen_crossover_table(uvc, g16))
     print(gen_memory_table(uvc))
     print(gen_cumulative_table(uvc, g16, nova))
+    if uvc_bound:
+        print(gen_state_bound_table(uvc, uvc_bound))
     print()
 
 
@@ -884,9 +916,9 @@ def gen_setup_latex(uvc, g16, nova):
 
 def print_latex(csv_dir):
     """Generate all LaTeX output to stdout."""
-    uvc, g16, nova = load_all(csv_dir)
+    uvc, g16, nova, uvc_bound = load_all(csv_dir)
 
-    if not uvc:
+    if not uvc and not uvc_bound:
         print("% No UVC data found.", file=sys.stderr)
         return
 
@@ -897,6 +929,9 @@ def print_latex(csv_dir):
     print()
     print()
     print(gen_setup_latex(uvc, g16, nova))
+    if uvc_bound:
+        print()
+        print(gen_state_bound_table(uvc, uvc_bound))
 
 
 # ── Main ──────────────────────────────────────────────────────────

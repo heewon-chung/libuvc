@@ -382,7 +382,7 @@ def latex_n(n):
     return str(n)
 
 
-def gen_table2_latex(uvc, g16, nova):
+def gen_table2_latex(uvc, g16, nova, state_bound=False):
     """Generate Table 2 (per-step proving + verification + proof size) matching paper."""
     configs = get_circuit_configs(uvc)
 
@@ -413,7 +413,7 @@ def gen_table2_latex(uvc, g16, nova):
         num_steps = len(PAPER_STEPS)
 
         # Get proof sizes (constant across steps)
-        uvc_proof = "128"
+        uvc_proof = "160" if state_bound else "128"
         g16_proof = "128"
         nova_proof = "---"
         nv_any = nova.get((circuit, n, 1))
@@ -605,7 +605,9 @@ def print_latex(csv_dir):
         print("% No UVC data found.", file=sys.stderr)
         return
 
-    print(gen_table2_latex(uvc, g16, nova))
+    print(gen_table2_latex(
+        uvc, g16, nova,
+        state_bound=os.path.exists(os.path.join(csv_dir, "uvc_bound_results.csv"))))
     print()
     print()
     print(gen_setup_latex(uvc, g16, nova))
@@ -638,7 +640,10 @@ def main():
             os.makedirs(args.save_dir, exist_ok=True)
 
             with open(os.path.join(args.save_dir, "table_perstep.tex"), "w") as f:
-                f.write(gen_table2_latex(uvc, g16, nova))
+                f.write(gen_table2_latex(
+                    uvc, g16, nova,
+                    state_bound=os.path.exists(
+                        os.path.join(args.csv_dir, "uvc_bound_results.csv"))))
             print(f"  Saved: {args.save_dir}/table_perstep.tex")
 
             with open(os.path.join(args.save_dir, "table_setup.tex"), "w") as f:

@@ -24,9 +24,9 @@ recursive proof composition approaches (e.g., Mina/Coda, Halo).
 
   Benchmark 3 (Verifier time):
     Measures verification time at each step. Since the verifier performs
-    a fixed number of pairings (3 pairings + 1 input accumulation) that
-    depend only on the primary input size (s_0, t_1), verification cost
-    should be approximately CONSTANT regardless of step count j.
+    a fixed number of pairings. The verifier additionally holds trusted
+    D_prev and checks the reported state increment; with fixed state size,
+    verification cost should be approximately CONSTANT regardless of step count j.
 
   Benchmark 4 (Proof size):
     Reports proof size at various steps and B values. The proof consists
@@ -259,7 +259,7 @@ void bench_setup()
         size_t total_constraints = B * st.base_cs.num_constraints();
 
         auto t0 = hrclock::now();
-        auto kp = r1cs_uvc_ppzksnark_generator<ppT>(st, B);
+        auto kp = r1cs_uvc_ppzksnark_generator<ppT>(st, B, false);
         auto t1 = hrclock::now();
 
         size_t crs_g1 = kp.pk.base_pk.A_query.size() + kp.pk.base_pk.L_query.size() +
@@ -297,7 +297,7 @@ void bench_prover()
     std::vector<std::vector<FieldT> > states, transitions, witnesses;
     make_multiplier_trace(B, states, transitions, witnesses);
 
-    auto kp = r1cs_uvc_ppzksnark_generator<ppT>(st, B);
+    auto kp = r1cs_uvc_ppzksnark_generator<ppT>(st, B, false);
 
     printf("  Circuit: multiplier, B=%zu\n\n", B);
     printf("  %-6s  %-8s  %-12s  %-12s\n",
@@ -340,7 +340,7 @@ void bench_verifier()
     printf("Benchmark: UVC.Verify time (constant across steps)\n");
     printf("================================================================\n");
     printf("  Measures verification time at each step (averaged over 5 runs).\n");
-    printf("  Expected: ~constant — 3 pairings + input accumulation, independent of j.\n");
+    printf("  Expected: ~constant — 4 pairings + state-commitment increment check, independent of j.\n");
 
     auto st = make_multiplier<FieldT>();
     const size_t B = 10;
@@ -348,12 +348,14 @@ void bench_verifier()
     std::vector<std::vector<FieldT> > states, transitions, witnesses;
     make_multiplier_trace(B, states, transitions, witnesses);
 
-    auto kp = r1cs_uvc_ppzksnark_generator<ppT>(st, B);
+    auto kp = r1cs_uvc_ppzksnark_generator<ppT>(st, B, true);
 
     /* Generate all proofs */
     std::vector<r1cs_uvc_ppzksnark_proof<ppT> > proofs;
     std::vector<r1cs_uvc_ppzksnark_primary_input<ppT> > primaries;
+    std::vector<libff::G1<ppT> > D_prevs;
 
+    libff::G1<ppT> D_prev = libff::G1<ppT>::zero();
     r1cs_uvc_ppzksnark_proof<ppT> prev;
     bool have_prev = false;
     for (size_t step = 1; step <= B; ++step)
@@ -364,6 +366,8 @@ void bench_verifier()
             have_prev ? &prev : nullptr);
         proofs.push_back(proof);
         primaries.push_back(assign.first);
+        D_prevs.push_back(D_prev);
+        D_prev = proof.g_D;
         prev = proof;
         have_prev = true;
     }
@@ -381,7 +385,8 @@ void bench_verifier()
         for (size_t r = 0; r < runs; ++r)
         {
             auto t0 = hrclock::now();
-            result = r1cs_uvc_ppzksnark_verifier<ppT>(kp.vk, i + 1, primaries[i], proofs[i]);
+            result = r1cs_uvc_ppzksnark_verifier<ppT>(
+                kp.vk, i + 1, primaries[i], states[i + 1], proofs[i], D_prevs[i]);
             auto t1 = hrclock::now();
             total_ms += elapsed_ms(t0, t1);
         }
@@ -403,7 +408,7 @@ void bench_proof_size()
     printf("Benchmark: Proof size (constant across steps and B)\n");
     printf("================================================================\n");
     printf("  Reports proof size at various steps and B values.\n");
-    printf("  Expected: always 2 G1 + 1 G2 elements (same as Groth16).\n");
+    printf("  Expected: 3 G1 + 1 G2 for state-bound proofs (2 G1 + 1 G2 pre-fix).\n");
 
     auto st = make_multiplier<FieldT>();
 
@@ -418,7 +423,7 @@ void bench_proof_size()
         std::vector<std::vector<FieldT> > states, transitions, witnesses;
         make_multiplier_trace(B, states, transitions, witnesses);
 
-        auto kp = r1cs_uvc_ppzksnark_generator<ppT>(st, B);
+        auto kp = r1cs_uvc_ppzksnark_generator<ppT>(st, B, true);
 
         r1cs_uvc_ppzksnark_proof<ppT> prev;
         bool have_prev = false;
@@ -462,7 +467,7 @@ void bench_circuit_comparison()
         make_multiplier_trace(B, states, transitions, witnesses);
 
         auto t0 = hrclock::now();
-        auto kp = r1cs_uvc_ppzksnark_generator<ppT>(st, B);
+        auto kp = r1cs_uvc_ppzksnark_generator<ppT>(st, B, false);
         auto t1 = hrclock::now();
 
         auto assign1 = build_composed_assignment(st, (size_t)1, states, transitions, witnesses);
@@ -500,7 +505,7 @@ void bench_circuit_comparison()
         make_two_state_trace(B, states, transitions, witnesses);
 
         auto t0 = hrclock::now();
-        auto kp = r1cs_uvc_ppzksnark_generator<ppT>(st, B);
+        auto kp = r1cs_uvc_ppzksnark_generator<ppT>(st, B, false);
         auto t1 = hrclock::now();
 
         auto assign1 = build_composed_assignment(st, (size_t)1, states, transitions, witnesses);

@@ -63,10 +63,10 @@ def dedup_groth16(rows):
 
 
 def gen_uvc_table(uvc_rows, output_path):
-    """Generate Table 2: UVC performance across circuits and B values."""
+    """Generate Table 2: UVC performance across labeled schemes and B values."""
     groups = defaultdict(list)
     for r in uvc_rows:
-        key = (r['circuit'], int(r['n']), int(r['B']))
+        key = (r.get('display_scheme', 'UVC (pre-fix)'), r['circuit'], int(r['n']), int(r['B']))
         groups[key].append(r)
 
     with open(output_path, 'w') as f:
@@ -76,22 +76,23 @@ def gen_uvc_table(uvc_rows, output_path):
         f.write('\\caption{UVC scheme performance: setup, prove, and verify times.}\n')
         f.write('\\label{tab:uvc-bench}\n')
         f.write('\\scriptsize\n')
-        f.write('\\begin{tabular}{llrrrrrrr}\n')
+        f.write('\\begin{tabular}{lllrrrrrrr}\n')
         f.write('\\toprule\n')
-        f.write('Circuit & $n$ & $B$ & Step $j$ & Setup (ms) & Prove (ms) & Verify (ms) & CRS $|\\mathbb{G}_1|$ & Proof (B) \\\\\n')
+        f.write('Scheme & Circuit & $n$ & $B$ & Step $j$ & Setup (ms) & Prove (ms) & Verify (ms) & CRS $|\\mathbb{G}_1|$ & Proof (B) \\\\\n')
         f.write('\\midrule\n')
 
         for key in sorted(groups.keys()):
-            circuit, n, B = key
+            scheme, circuit, n, B = key
             rows = sorted(groups[key], key=lambda r: int(r['step']))
             first = True
             for r in rows:
+                scheme_col = scheme if first else ''
                 circ_col = f'\\texttt{{{circuit}}}' if first else ''
                 n_col = str(n) if first else ''
                 b_col = str(B) if first else ''
-                f.write(f'{circ_col} & {n_col} & {b_col} & {r["step"]} & '
+                f.write(f'{scheme_col} & {circ_col} & {n_col} & {b_col} & {r["step"]} & '
                         f'{fmt_ms(r["setup_ms"])} & {fmt_ms(r["prove_ms"])} & '
-                        f'{fmt_ms(r["verify_ms"])} & {fmt_size(r["crs_g1"])} & '
+                        f'{fmt_ms(r["verify_ms"])} & {fmt_size(r.get("crs_g1", r.get("crs_g1_published", "")))} & '
                         f'{r.get("proof_bytes", "--")} \\\\\n')
                 first = False
             f.write('\\midrule\n')
@@ -363,6 +364,12 @@ def main():
     os.makedirs(args.output_dir, exist_ok=True)
 
     uvc_rows = read_csv(os.path.join(args.input_dir, 'uvc_results.csv'))
+    for row in uvc_rows:
+        row['display_scheme'] = 'UVC (pre-fix)'
+    uvc_bound_rows = read_csv(os.path.join(args.input_dir, 'uvc_bound_results.csv'))
+    for row in uvc_bound_rows:
+        row['display_scheme'] = 'UVC (state-bound)'
+    uvc_rows.extend(uvc_bound_rows)
     g16_rows = read_csv(os.path.join(args.input_dir, 'groth16_results.csv'))
     nova_rows = read_csv(os.path.join(args.input_dir, 'nova_results.csv'))
 

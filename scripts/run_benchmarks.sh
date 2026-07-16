@@ -3,15 +3,16 @@
 # run_benchmarks.sh — Run all UVC paper benchmarks and save results.
 #
 # Usage:
-#   ./scripts/run_benchmarks.sh              # Full paper-grade run (all circuits, B=16/64, 5 reps)
-#   ./scripts/run_benchmarks.sh --quick      # Quick smoke test (MiMC only, B=16, 2 reps)
+#   ./scripts/run_benchmarks.sh              # Full state-bound paper-grade run
+#   ./scripts/run_benchmarks.sh --legacy     # Pre-fix compatibility run
+#   ./scripts/run_benchmarks.sh --quick      # Quick state-bound smoke test
 #   ./scripts/run_benchmarks.sh --cpp-only   # C++ benchmarks only (UVC + Groth16)
 #   ./scripts/run_benchmarks.sh --nova-only  # Nova benchmarks only (Rust)
 #   ./scripts/run_benchmarks.sh --tables-only # Merge + generate tables from existing CSVs
 #
 # Output:
 #   results/YYYY-MM-DD_HHMMSS_TAG/
-#     csv/uvc_results.csv
+#     csv/uvc_bound_results.csv (state-bound; uvc_results.csv with --legacy)
 #     csv/groth16_results.csv
 #     csv/nova_results.csv
 #     csv/combined_results.csv
@@ -27,9 +28,11 @@ BUILD_DIR="$PROJECT_DIR/build"
 NOVA_DIR="$PROJECT_DIR/nova-bench"
 
 # ── Defaults (paper-grade) ──────────────────────────────────────────
-TAG="paper"
+TAG="paper_v2"
 REPS=10
 MODE="all"
+LEGACY=false
+QUICK=false
 
 # Paper Table 2 configurations: (circuit, n, B)
 CONFIGS=(
@@ -58,6 +61,7 @@ NOVA_CONFIGS=(
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --quick)
+            QUICK=true
             TAG="quick"
             REPS=2
             CONFIGS=(
@@ -72,6 +76,7 @@ while [[ $# -gt 0 ]]; do
             )
             shift
             ;;
+        --legacy)     LEGACY=true; shift ;;
         --cpp-only)   MODE="cpp"; shift ;;
         --nova-only)  MODE="nova"; shift ;;
         --tables-only) MODE="tables"; shift ;;
@@ -87,6 +92,25 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+if $LEGACY; then
+    if $QUICK; then
+        TAG="quick_legacy"
+    else
+        TAG="paper_legacy"
+    fi
+    UVC_RESULTS="uvc_results.csv"
+    BENCH_MODE_ARGS=(--legacy)
+else
+    UVC_RESULTS="uvc_bound_results.csv"
+    BENCH_MODE_ARGS=()
+fi
+
+if $QUICK; then
+    BENCH_VERIFY_ARGS=(--verify-measured-only)
+else
+    BENCH_VERIFY_ARGS=()
+fi
+
 
 # ── Output directory ────────────────────────────────────────────────
 TIMESTAMP="$(date +%Y-%m-%d_%H%M%S)"
@@ -217,12 +241,13 @@ run_cpp() {
         run_bench "[$i/${#CONFIGS[@]}] $circuit n=$n B=$B" \
             "$BENCH" \
             --circuit "$circuit" --n "$n" --B "$B" \
-            --output-dir "$CSV_DIR" --reps "$REPS"
+            --output-dir "$CSV_DIR" --reps "$REPS" \
+            ${BENCH_MODE_ARGS[@]+"${BENCH_MODE_ARGS[@]}"} ${BENCH_VERIFY_ARGS[@]+"${BENCH_VERIFY_ARGS[@]}"}
     done
 
     echo ""
     echo "C++ benchmarks complete."
-    echo "  UVC:     $CSV_DIR/uvc_results.csv"
+    echo "  UVC:     $CSV_DIR/$UVC_RESULTS"
     echo "  Groth16: $CSV_DIR/groth16_results.csv"
 }
 
@@ -268,8 +293,11 @@ run_tables() {
 
     # Use the Python scripts from benchmark-results/scripts/ if they exist,
     # otherwise use our own summarize_results.py
-    local MERGE_SCRIPT="$PROJECT_DIR/benchmark-results/scripts/merge_results.py"
-    local TABLE_SCRIPT="$PROJECT_DIR/benchmark-results/scripts/gen_latex_tables.py"
+    # These consumers receive the run's csv/ directory, which contains either
+    # the state-bound CSV or the explicitly requested legacy CSV.
+    local RESULTS_SCRIPTS_DIR="$PROJECT_DIR/benchmark-results/scripts"
+    local MERGE_SCRIPT="$RESULTS_SCRIPTS_DIR/merge_results.py"
+    local TABLE_SCRIPT="$RESULTS_SCRIPTS_DIR/gen_latex_tables.py"
     local SUMMARIZE="$SCRIPT_DIR/summarize_results.py"
 
     # Merge CSVs
@@ -320,14 +348,14 @@ case "$MODE" in
     nova)   build_all; run_nova ;;
     tables)
         # For --tables-only, look for existing CSVs
-        if [[ ! -f "$CSV_DIR/uvc_results.csv" ]]; then
+        if [[ ! -f "$CSV_DIR/$UVC_RESULTS" ]]; then
             # Try benchmark-results/csv first (canonical location)
-            if [[ -f "$PROJECT_DIR/benchmark-results/csv/uvc_results.csv" ]]; then
+            if [[ -f "$PROJECT_DIR/benchmark-results/csv/$UVC_RESULTS" ]]; then
                 echo "  Using existing CSVs from: benchmark-results/csv/"
                 CSV_DIR="$PROJECT_DIR/benchmark-results/csv"
             else
                 # Try latest results dir (exclude the one we just created)
-                LATEST="$(find "$PROJECT_DIR/results" -name "uvc_results.csv" -type f 2>/dev/null | head -1)"
+                LATEST="$(find "$PROJECT_DIR/results" -name "$UVC_RESULTS" -type f 2>/dev/null | head -1)"
                 if [[ -n "$LATEST" ]]; then
                     CSV_DIR="$(dirname "$LATEST")"
                     echo "  Using existing CSVs from: $CSV_DIR"
