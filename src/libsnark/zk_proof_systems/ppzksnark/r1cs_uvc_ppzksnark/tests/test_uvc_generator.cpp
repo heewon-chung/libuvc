@@ -524,6 +524,8 @@ bool check_bind_state_generator_dimensions(
     bool step_deltas = bound_kp.pk.step_data.size() == B - 1;
     for (const auto &step_data : bound_kp.pk.step_data) {
         step_deltas &= step_data.st_query_delta.size() == ss;
+        step_deltas &= step_data.new_st_count == ss;
+        step_deltas &= step_data.new_wt_count == new_per_step - ss;
     }
 
     const bool pass =
@@ -561,10 +563,22 @@ bool test_track_disjointness_checker_detects_violation()
     const bool consistent = uvc_check_track_disjointness(st, B, total_vars);
     const bool wrong_total_vars = !uvc_check_track_disjointness(st, B, total_vars + 1);
     const bool wrong_B = !uvc_check_track_disjointness(st, B + 1, total_vars);
-    const bool pass = consistent && wrong_total_vars && wrong_B;
-    printf("  Consistent=%s, wrong total vars=%s, wrong B=%s\n",
+
+    state_transition_circuit<FieldT> malformed;
+    malformed.base_cs.primary_input_size = 3;
+    malformed.state_size = 2;
+    malformed.transition_size = 0;
+    const size_t malformed_B = 2;
+    const size_t malformed_total_vars = malformed.wires_per_step() +
+        (malformed_B - 1) * malformed.num_new_wires_per_step();
+    const bool overlapping_state_slices =
+        !uvc_check_track_disjointness(malformed, malformed_B, malformed_total_vars);
+
+    const bool pass =
+        consistent && wrong_total_vars && wrong_B && overlapping_state_slices;
+    printf("  Consistent=%s, wrong total vars=%s, wrong B=%s, overlapping state slices=%s\n",
            consistent ? "PASS" : "FAIL", wrong_total_vars ? "PASS" : "FAIL",
-           wrong_B ? "PASS" : "FAIL");
+           wrong_B ? "PASS" : "FAIL", overlapping_state_slices ? "PASS" : "FAIL");
     return pass;
 }
 

@@ -15,7 +15,9 @@ Core idea (Paper Section 4.2):
     B_j = B_{j-1} + sum_{i in I_j\I_{j-1}} a_i * v_i(x)
     C_j = C_{j-1} + incremental_witness_terms + (h_j - h_{j-1}) * t(x) / delta
 
-The verification is identical to VC.Verify (same pairing equation).
+The legacy verifier delegates non-state-bound proofs to VC.Verify. The state-bound
+verifier checks a four-pairing equation and requires caller-held trusted D_prev
+(the previous accepted state commitment).
 
 Reference:
   "Updatable Verifiable Computation without Recursive Proof Compositions"
@@ -56,8 +58,9 @@ struct uvc_step_proving_data {
     size_t new_wire_start;    /* first new wire index (inclusive) */
     size_t new_wire_count;    /* number of new wires */
 
-    /* Number of new input/output (statement) wires vs witness wires */
+    /* Number of new input/output, state-output, and witness wires */
     size_t new_io_count;
+    size_t new_st_count;
     size_t new_wt_count;
 
     /* G1 elements [u_i(x)]_1 for new A-query wires */
@@ -71,7 +74,7 @@ struct uvc_step_proving_data {
     /* G1 elements [(beta*u_i(x) + alpha*v_i(x) + w_i(x))/eta]_1 for new state-output wires */
     libff::G1_vector<ppT> st_query_delta;
 
-    uvc_step_proving_data() : new_wire_start(0), new_wire_count(0), new_io_count(0), new_wt_count(0) {}
+    uvc_step_proving_data() : new_wire_start(0), new_wire_count(0), new_io_count(0), new_st_count(0), new_wt_count(0) {}
 };
 
 
@@ -114,8 +117,9 @@ public:
         }
         for (size_t j = 0; j < step_data.size(); ++j)
         {
-            libff::print_indent(); printf("* Step %zu: %zu new wires (%zu io, %zu wt)\n",
-                j+2, step_data[j].new_wire_count, step_data[j].new_io_count, step_data[j].new_wt_count);
+            libff::print_indent(); printf("* Step %zu: %zu new wires (%zu io, %zu st, %zu wt)\n",
+                j+2, step_data[j].new_wire_count, step_data[j].new_io_count,
+                step_data[j].new_st_count, step_data[j].new_wt_count);
         }
     }
 };
@@ -182,8 +186,9 @@ public:
 /*********************************** Proof ***********************************/
 
 /**
- * A UVC proof consists of the VC proof elements plus cached state
- * for incremental updates.
+ * A UVC proof contains VC proof elements, an optional state-binding commitment,
+ * and cached state for incremental updates. State-bound proofs must be verified
+ * with the state-bound overload and a trusted D_prev from the caller.
  */
 template<typename ppT>
 class r1cs_uvc_ppzksnark_proof {
@@ -266,7 +271,7 @@ r1cs_uvc_ppzksnark_keypair<ppT> r1cs_uvc_ppzksnark_generator(
  *
  * @param pk             UVC proving key
  * @param step           Current composition step j (1-indexed)
- * @param primary_input  Statement for step j (t_1 and s_j)
+ * @param primary_input  Statement for step j (s_0 and t_1)
  * @param auxiliary_input Full witness for step j
  * @param prev_proof     Previous proof (nullptr for j=1)
  */
@@ -279,9 +284,9 @@ r1cs_uvc_ppzksnark_proof<ppT> r1cs_uvc_ppzksnark_prover(
     const r1cs_uvc_ppzksnark_proof<ppT> *prev_proof = nullptr);
 
 /**
- * UVC.Verify: Verify a proof at any step j.
+ * UVC.Verify: Verify a legacy non-state-bound proof at step j.
  *
- * Delegates to VC.Verify with the appropriate verification key for step j.
+ * Rejects state-bound keys and proofs; only non-state-bound proofs delegate to VC.Verify.
  */
 template<typename ppT>
 bool r1cs_uvc_ppzksnark_verifier(

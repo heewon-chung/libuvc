@@ -964,6 +964,81 @@ bool test_state_bound_mismatched_step()
 
 
 
+template<typename ppT>
+bool test_legacy_verifier_rejects_state_bound_proof()
+{
+    printf("\n--- test_legacy_verifier_rejects_state_bound_proof ---\n");
+    multiplier_fixture<ppT> fix(true);
+    const bool rejected = !r1cs_uvc_ppzksnark_verifier<ppT>(
+        fix.kp.vk, 2, fix.primaries[1], fix.proofs[1]);
+    printf("  Bound fixture proof rejected by legacy verifier=%s\n",
+           rejected ? "PASS" : "FAIL");
+    return rejected;
+}
+
+template<typename ppT>
+bool test_legacy_verifier_rejects_zero_state_bound_proof()
+{
+    typedef libff::Fr<ppT> FieldT;
+    printf("\n--- test_legacy_verifier_rejects_zero_state_bound_proof ---\n");
+    const state_transition_circuit<FieldT> st = make_multiplier<FieldT>();
+    const std::vector<std::vector<FieldT> > states = {
+        {FieldT::zero()}, {FieldT::zero()}, {FieldT::zero()}
+    };
+    const std::vector<std::vector<FieldT> > transitions = {
+        {FieldT(5)}, {FieldT(7)}
+    };
+    const std::vector<std::vector<FieldT> > witnesses(2);
+    const auto kp = r1cs_uvc_ppzksnark_generator<ppT>(st, 2, true);
+    const auto assignment_1 =
+        build_composed_assignment(st, 1, states, transitions, witnesses);
+    const auto proof_1 = r1cs_uvc_ppzksnark_prover<ppT>(
+        kp.pk, 1, assignment_1.first, assignment_1.second);
+    const auto assignment_2 =
+        build_composed_assignment(st, 2, states, transitions, witnesses);
+    const auto proof_2 = r1cs_uvc_ppzksnark_prover<ppT>(
+        kp.pk, 2, assignment_2.first, assignment_2.second, &proof_1);
+    const bool zero_commitment = proof_2.g_D == libff::G1<ppT>::zero();
+    const bool rejected = !r1cs_uvc_ppzksnark_verifier<ppT>(
+        kp.vk, 2, assignment_2.first, proof_2);
+    const bool pass = zero_commitment && rejected;
+    printf("  Zero-state g_D=%s, legacy verifier rejected=%s\n",
+           zero_commitment ? "PASS" : "FAIL", rejected ? "PASS" : "FAIL");
+    return pass;
+}
+
+template<typename ppT>
+bool test_legacy_verifier_rejects_wrong_step()
+{
+    printf("\n--- test_legacy_verifier_rejects_wrong_step ---\n");
+    multiplier_fixture<ppT> fix;
+    const bool rejected = !r1cs_uvc_ppzksnark_verifier<ppT>(
+        fix.kp.vk, 3, fix.primaries[1], fix.proofs[1]);
+    printf("  Legacy proof 2 verified as step 3 rejected=%s\n",
+           rejected ? "PASS" : "FAIL");
+    return rejected;
+}
+
+template<typename ppT>
+bool test_state_bound_verifier_rejects_wrong_primary_size()
+{
+    typedef libff::Fr<ppT> FieldT;
+    printf("\n--- test_state_bound_verifier_rejects_wrong_primary_size ---\n");
+    multiplier_fixture<ppT> fix(true);
+    std::vector<FieldT> short_primary = fix.primaries[1];
+    short_primary.pop_back();
+    std::vector<FieldT> long_primary = fix.primaries[1];
+    long_primary.push_back(FieldT::zero());
+    const bool short_rejected = !r1cs_uvc_ppzksnark_verifier<ppT>(
+        fix.kp.vk, 2, short_primary, fix.states[2], fix.proofs[1], fix.proofs[0].g_D);
+    const bool long_rejected = !r1cs_uvc_ppzksnark_verifier<ppT>(
+        fix.kp.vk, 2, long_primary, fix.states[2], fix.proofs[1], fix.proofs[0].g_D);
+    const bool pass = short_rejected && long_rejected;
+    printf("  Short primary rejected=%s, long primary rejected=%s\n",
+           short_rejected ? "PASS" : "FAIL", long_rejected ? "PASS" : "FAIL");
+    return pass;
+}
+
 /* ======================================================================== */
 /* Main                                                                     */
 /* ======================================================================== */
@@ -1004,6 +1079,10 @@ int main()
     all_pass &= test_state_bound_negative_wrong_reported_state<libff::alt_bn128_pp>();
     all_pass &= test_state_bound_negative_tampered_gD<libff::alt_bn128_pp>();
     all_pass &= test_state_bound_mismatched_step<libff::alt_bn128_pp>();
+    all_pass &= test_legacy_verifier_rejects_state_bound_proof<libff::alt_bn128_pp>();
+    all_pass &= test_legacy_verifier_rejects_zero_state_bound_proof<libff::alt_bn128_pp>();
+    all_pass &= test_legacy_verifier_rejects_wrong_step<libff::alt_bn128_pp>();
+    all_pass &= test_state_bound_verifier_rejects_wrong_primary_size<libff::alt_bn128_pp>();
 
     printf("\n================================================================\n");
     printf("r1cs_uvc_ppzksnark_prover & verifier: %s\n", all_pass ? "ALL PASSED" : "SOME FAILED");

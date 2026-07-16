@@ -400,7 +400,8 @@ r1cs_uvc_ppzksnark_keypair<ppT> r1cs_uvc_ppzksnark_generator(
         sd.new_wire_start = new_start_qap;
         sd.new_wire_count = new_count;
         sd.new_io_count = 0;       /* all new wires are witness (public inputs are fixed) */
-        sd.new_wt_count = new_count;
+        sd.new_st_count = bind_state ? ss : 0;
+        sd.new_wt_count = bind_state ? new_count - ss : new_count;
 
         /* Extract A, B, L queries for new wires from the FULL C_B queries */
         std::vector<FieldT> new_At(At.begin() + new_start_qap, At.begin() + new_start_qap + new_count);
@@ -769,6 +770,22 @@ bool r1cs_uvc_ppzksnark_verifier(
     const r1cs_uvc_ppzksnark_proof<ppT> &proof)
 {
     libff::enter_block("Call to r1cs_uvc_ppzksnark_verifier");
+    if (vk.bind_state || proof.bind_state)
+    {
+        if (!libff::inhibit_profiling_info) {
+            libff::print_indent(); printf("state-bound key/proof requires the state-bound verifier overload.\n");
+        }
+        libff::leave_block("Call to r1cs_uvc_ppzksnark_verifier");
+        return false;
+    }
+    if (proof.step != step)
+    {
+        if (!libff::inhibit_profiling_info) {
+            libff::print_indent(); printf("Proof step does not match the verification step.\n");
+        }
+        libff::leave_block("Call to r1cs_uvc_ppzksnark_verifier");
+        return false;
+    }
     assert(step >= 1 && step <= vk.max_compositions);
 
     /* Build a VC verification key using the single gamma_ABC */
@@ -817,6 +834,14 @@ bool r1cs_uvc_ppzksnark_verifier(
         return false;
     }
 
+    if (primary_input.size() != vk.state_size + vk.transition_size)
+    {
+        if (!libff::inhibit_profiling_info) {
+            libff::print_indent(); printf("Primary input has incorrect size.\n");
+        }
+        libff::leave_block("Call to r1cs_uvc_ppzksnark_state_bound_verifier");
+        return false;
+    }
     if (reported_s_j.size() != vk.state_size)
     {
         if (!libff::inhibit_profiling_info) {

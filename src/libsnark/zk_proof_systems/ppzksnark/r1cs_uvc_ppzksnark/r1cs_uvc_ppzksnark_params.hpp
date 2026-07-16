@@ -41,8 +41,9 @@ using r1cs_uvc_ppzksnark_auxiliary_input = r1cs_auxiliary_input<libff::Fr<ppT> >
  *   - state_size wires for state output s_j
  *   - (remaining wires are internal witness)
  *
- * For the primary input (statement), we expose: t_1 (first transition) and s_j (current output).
- * All intermediate states s_1,...,s_{j-1} and transitions t_2,...,t_j are witness.
+ * The public statement is (s_0, t_1). The reported current output s_j is
+ * supplied out-of-band to the state-bound verifier; all intermediate states
+ * s_1,...,s_{j-1} and transitions t_2,...,t_j are witness.
  */
 template<typename FieldT>
 struct state_transition_circuit {
@@ -187,9 +188,17 @@ bool uvc_check_track_disjointness(
         return false;
     }
 
-    const std::vector<uvc_wire_class> classes = uvc_wire_classes(st_circuit, B);
     const size_t num_inputs = st_circuit.state_size + st_circuit.transition_size;
     const std::vector<size_t> state_indices = uvc_state_output_indices(st_circuit, B);
+    for (size_t i = 0; i < state_indices.size(); ++i) {
+        if (state_indices[i] <= num_inputs ||
+            state_indices[i] > total_vars ||
+            (i > 0 && state_indices[i - 1] >= state_indices[i])) {
+            return false;
+        }
+    }
+
+    const std::vector<uvc_wire_class> classes = uvc_wire_classes(st_circuit, B);
 
     for (size_t wire = 1; wire <= total_vars; ++wire) {
         size_t membership_count = 0;
