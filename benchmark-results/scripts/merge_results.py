@@ -63,10 +63,48 @@ def merge_results(input_dir, output_path):
         key = (r.get('circuit', ''), r.get('n', ''), r.get('step', ''))
         nova_by_key[key] = r
 
-    # Output one row per UVC scheme and benchmark coordinate, enriched with
-    # Groth16 and Nova measurements.
-    all_uvc_keys = sorted(
-        uvc_by_key.keys(), key=lambda k: (k[1], int(k[2]), int(k[3]), int(k[4]), k[0]))
+    # Keep each source measurement as a scheme-labelled row.  UVC rows retain
+    # the comparison measurements historically included in this file; native
+    # Groth16 and Nova rows make the scheme column unambiguous for consumers.
+    all_rows = []
+    for key in sorted(
+            uvc_by_key, key=lambda k: (k[1], int(k[2]), int(k[3]), int(k[4]), k[0])):
+        scheme, circuit, n, B, step = key
+        uvc = uvc_by_key[key]
+        g16 = g16_by_key.get((circuit, n, step), {})
+        nova = nova_by_key.get((circuit, n, step), {})
+        all_rows.append([
+            scheme, circuit, n, B, step,
+            uvc.get('setup_ms', ''), uvc.get('prove_ms', ''),
+            uvc.get('verify_ms', ''),
+            uvc.get('crs_g1', uvc.get('crs_g1_published', '')),
+            uvc.get('crs_g2', ''), uvc.get('proof_bytes', ''),
+            uvc.get('peak_mem_mb', ''),
+            g16.get('setup_ms', ''), g16.get('prove_ms', ''),
+            g16.get('verify_ms', ''), g16.get('crs_g1', ''),
+            g16.get('crs_g2', ''), g16.get('proof_bytes', ''),
+            nova.get('setup_ms', ''), nova.get('fold_ms', ''),
+            nova.get('total_fold_ms', ''), nova.get('compress_ms', ''),
+            nova.get('verify_ms', ''), nova.get('proof_bytes', ''),
+        ])
+
+    for r in g16_rows:
+        all_rows.append([
+            'groth16', r['circuit'], r['n'], '', r['step'],
+            '', '', '', '', '', '', '',
+            r.get('setup_ms', ''), r.get('prove_ms', ''),
+            r.get('verify_ms', ''), r.get('crs_g1', ''),
+            r.get('crs_g2', ''), r.get('proof_bytes', ''),
+            '', '', '', '', '', '',
+        ])
+    for r in nova_rows:
+        all_rows.append([
+            'nova', r.get('circuit', ''), r.get('n', ''), '', r.get('step', ''),
+            '', '', '', '', '', '', '', '', '', '', '', '', '',
+            r.get('setup_ms', ''), r.get('fold_ms', ''),
+            r.get('total_fold_ms', ''), r.get('compress_ms', ''),
+            r.get('verify_ms', ''), r.get('proof_bytes', ''),
+        ])
 
     with open(output_path, 'w', newline='') as f:
         writer = csv.writer(f)
@@ -79,33 +117,11 @@ def merge_results(input_dir, output_path):
             'nova_setup_ms', 'nova_fold_ms', 'nova_total_fold_ms',
             'nova_compress_ms', 'nova_verify_ms', 'nova_proof_bytes',
         ])
-
-        for key in all_uvc_keys:
-            scheme, circuit, n, B, step = key
-            uvc = uvc_by_key[key]
-            g16_key = (circuit, n, step)
-            g16 = g16_by_key.get(g16_key, {})
-            nova = nova_by_key.get(g16_key, {})
-
-            writer.writerow([
-                scheme, circuit, n, B, step,
-                uvc.get('setup_ms', ''), uvc.get('prove_ms', ''),
-                uvc.get('verify_ms', ''),
-                uvc.get('crs_g1', uvc.get('crs_g1_published', '')),
-                uvc.get('crs_g2', ''),
-                uvc.get('proof_bytes', ''), uvc.get('peak_mem_mb', ''),
-                g16.get('setup_ms', ''), g16.get('prove_ms', ''),
-                g16.get('verify_ms', ''), g16.get('crs_g1', ''), g16.get('crs_g2', ''),
-                g16.get('proof_bytes', ''),
-                nova.get('setup_ms', ''), nova.get('fold_ms', ''),
-                nova.get('total_fold_ms', ''),
-                nova.get('compress_ms', ''), nova.get('verify_ms', ''),
-                nova.get('proof_bytes', ''),
-            ])
+        writer.writerows(all_rows)
 
     print(f"Combined results written to {output_path}")
     print(f"  UVC pre-fix rows: {len(uvc_rows)}, UVC state-bound rows: {len(uvc_bound_rows)}, Groth16 rows: {len(g16_rows)}, Nova rows: {len(nova_rows)}")
-    print(f"  Total combined rows: {len(all_uvc_keys)}")
+    print(f"  Total combined rows: {len(all_rows)}")
 
 
 if __name__ == '__main__':

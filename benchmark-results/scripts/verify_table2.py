@@ -54,11 +54,17 @@ def verify(input_path):
     with open(input_path, 'r') as f:
         rows = list(csv.DictReader(f))
 
-    # Index rows by (circuit, n, B, step)
+    # Index rows by scheme and benchmark coordinate.  Legacy UVC CSVs do not
+    # carry a scheme column, so retain their historical meaning explicitly.
     data = {}
+    schemes = set()
     for r in rows:
-        key = (r['circuit'], int(r['n']), int(r['B']), int(r['step']))
+        scheme = r.get('scheme') or 'uvc_prefix'
+        if not r.get('B'):
+            continue
+        key = (scheme, r['circuit'], int(r['n']), int(r['B']), int(r['step']))
         data[key] = r
+        schemes.add(scheme)
 
     total_checks = 0
     total_pass = 0
@@ -69,76 +75,65 @@ def verify(input_path):
         expected_steps = get_expected_steps(B)
         config_label = f"{circuit} n={n} B={B}"
 
-        # Check all expected steps exist
-        missing_steps = []
-        present_steps = []
-        for step in expected_steps:
-            key = (circuit, n, B, step)
-            if key in data:
-                present_steps.append(step)
-            else:
-                missing_steps.append(step)
+        for scheme in sorted(schemes):
+            scheme_prefix = "" if schemes == {'uvc_prefix'} else f"{scheme} "
+            if not any((scheme, circuit, n, B, step) in data for step in expected_steps):
+                continue
 
-        total_checks += 1
-        if missing_steps:
-            total_fail += 1
-            msg = f"  FAIL  {config_label}: missing steps {missing_steps}"
-            failures.append(msg)
-            print(msg)
-            continue
+            # Check all expected steps exist for every UVC scheme independently.
+            missing_steps = []
+            for step in expected_steps:
+                key = (scheme, circuit, n, B, step)
+                if key not in data:
+                    missing_steps.append(step)
 
-        # Sanity checks on data values
-        config_ok = True
-        for step in expected_steps:
-            key = (circuit, n, B, step)
-            r = data[key]
-
-            # UVC checks
-            uvc_setup = float(r.get('uvc_setup_ms', 0))
-            uvc_prove = float(r.get('uvc_prove_ms', 0))
-            uvc_verify = float(r.get('uvc_verify_ms', 0))
-            uvc_proof = int(r.get('uvc_proof_bytes', 0))
-
-            issues = []
-            if uvc_setup <= 0:
-                issues.append(f"uvc_setup_ms={uvc_setup}")
-            if uvc_prove <= 0:
-                issues.append(f"uvc_prove_ms={uvc_prove}")
-            if uvc_verify <= 0 or uvc_verify > 10:
-                issues.append(f"uvc_verify_ms={uvc_verify} (expected 0<v<=10)")
-            expected_uvc_proof = 160 if r.get('scheme') == 'uvc_bound' else 128
-            if uvc_proof != expected_uvc_proof:
-                issues.append(
-                    f"uvc_proof_bytes={uvc_proof} (expected {expected_uvc_proof})")
-
-            # Groth16 checks (should have data for steps within limits)
-            g16_prove = r.get('g16_prove_ms', '')
-            if g16_prove:
-                g16_prove_f = float(g16_prove)
-                g16_proof = int(r.get('g16_proof_bytes', 0))
-                if g16_prove_f <= 0:
-                    issues.append(f"g16_prove_ms={g16_prove_f}")
-                if g16_proof != 128:
-                    issues.append(f"g16_proof_bytes={g16_proof} (expected 128)")
-
-            # Nova checks (may not exist for all steps)
-            nova_setup = r.get('nova_setup_ms', '')
-            if nova_setup:
-                nova_setup_f = float(nova_setup)
-                if nova_setup_f <= 0:
-                    issues.append(f"nova_setup_ms={nova_setup_f}")
-
-            if issues:
-                config_ok = False
-                msg = f"  FAIL  {config_label} step={step}: {', '.join(issues)}"
+            total_checks += 1
+            if missing_steps:
+                total_fail += 1
+                msg = f"  FAIL  {scheme_prefix}{config_label}: missing steps {missing_steps}"
                 failures.append(msg)
                 print(msg)
+                continue
 
-        if config_ok:
-            total_pass += 1
-            print(f"  PASS  {config_label}: {len(expected_steps)} steps OK")
-        else:
-            total_fail += 1
+            config_ok = True
+            for step in expected_steps:
+                r = data[(scheme, circuit, n, B, step)]
+                issues = []
+
+                if scheme == 'groth16':
+                    g16_prove = float(r.get('g16_prove_ms', r.get('prove_ms', 0)))
+                    g16_proof = int(r.get('g16_proof_bytes', r.get('proof_bytes', 0)))
+                    if g16_prove <= 0:
+                        issues.append(f"g16_prove_ms={g16_prove}")
+                    if g16_proof != 128:
+                        issues.append(f"g16_proof_bytes={g16_proof} (expected 128)")
+                else:
+                    uvc_setup = float(r.get('uvc_setup_ms', r.get('setup_ms', 0)))
+                    uvc_prove = float(r.get('uvc_prove_ms', r.get('prove_ms', 0)))
+                    uvc_verify = float(r.get('uvc_verify_ms', r.get('verify_ms', 0)))
+                    uvc_proof = int(r.get('uvc_proof_bytes', r.get('proof_bytes', 0)))
+                    expected_uvc_proof = 160 if scheme == 'uvc_bound' else 128
+                    if uvc_setup <= 0:
+                        issues.append(f"uvc_setup_ms={uvc_setup}")
+                    if uvc_prove <= 0:
+                        issues.append(f"uvc_prove_ms={uvc_prove}")
+                    if uvc_verify <= 0 or uvc_verify > 10:
+                        issues.append(f"uvc_verify_ms={uvc_verify} (expected 0<v<=10)")
+                    if uvc_proof != expected_uvc_proof:
+                        issues.append(
+                            f"uvc_proof_bytes={uvc_proof} (expected {expected_uvc_proof})")
+
+                if issues:
+                    config_ok = False
+                    msg = f"  FAIL  {scheme_prefix}{config_label} step={step}: {', '.join(issues)}"
+                    failures.append(msg)
+                    print(msg)
+
+            if config_ok:
+                total_pass += 1
+                print(f"  PASS  {scheme_prefix}{config_label}: {len(expected_steps)} steps OK")
+            else:
+                total_fail += 1
 
     # Summary
     print()

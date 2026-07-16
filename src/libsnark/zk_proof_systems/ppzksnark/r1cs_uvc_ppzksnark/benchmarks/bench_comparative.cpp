@@ -444,6 +444,15 @@ BenchConfig parse_args(int argc, char *argv[])
 
     for (int i = 1; i < argc; ++i)
     {
+        if ((strcmp(argv[i], "--circuit") == 0 ||
+             strcmp(argv[i], "--n") == 0 ||
+             strcmp(argv[i], "--B") == 0 ||
+             strcmp(argv[i], "--output-dir") == 0 ||
+             strcmp(argv[i], "--reps") == 0) &&
+            (i + 1 >= argc || strncmp(argv[i + 1], "--", 2) == 0)) {
+            fprintf(stderr, "Missing value for option: %s\n", argv[i]);
+            exit(1);
+        }
         if (strcmp(argv[i], "--circuit") == 0 && i + 1 < argc)
             cfg.circuit = argv[++i];
         else if (strcmp(argv[i], "--n") == 0 && i + 1 < argc)
@@ -470,6 +479,10 @@ BenchConfig parse_args(int argc, char *argv[])
             printf("  --legacy                           Use pre-fix UVC and write uvc_results.csv\n");
             printf("  --verify-measured-only             Pre-check only measured UVC proof steps\n");
             exit(0);
+        }
+        else {
+            fprintf(stderr, "Unknown option: %s\n", argv[i]);
+            exit(1);
         }
     }
 

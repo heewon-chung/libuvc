@@ -100,20 +100,41 @@ def fmt_sec(val):
         return f"{v:.0f}"
 
 
+class UVCResults(dict):
+    """Scheme-aware UVC rows with legacy-preferring compatibility lookups."""
+
+    def get(self, key, default=None):
+        if len(key) == 4:
+            return super().get(('uvc_prefix',) + key,
+                               super().get(('uvc_bound',) + key, default))
+        return super().get(key, default)
+
+    def schemes_for(self, circuit, n):
+        return sorted({scheme for scheme, c, row_n, _, _ in self
+                       if c == circuit and row_n == n})
+
 # ── Data loading ──────────────────────────────────────────────────
 
 def load_all(csv_dir):
     """Load and index all benchmark CSVs."""
     uvc_rows = read_csv(os.path.join(csv_dir, "uvc_results.csv"))
+    uvc_bound_rows = read_csv(os.path.join(csv_dir, "uvc_bound_results.csv"))
     g16_rows = read_csv(os.path.join(csv_dir, "groth16_results.csv"))
     nova_rows = read_csv(os.path.join(csv_dir, "nova_results.csv"))
 
-    # Index UVC by (circuit, n, B, step)
-    uvc = {}
-    for r in uvc_rows:
-        c = normalize_circuit(r["circuit"])
-        key = (c, int(r["n"]), int(r["B"]), int(r["step"]))
-        uvc[key] = r
+    # Index UVC by scheme and coordinate.  Preserve legacy rows as uvc_prefix
+    # when their CSV predates the scheme column.
+    uvc = UVCResults()
+    for default_scheme, source_rows in (
+            ("uvc_prefix", uvc_rows), ("uvc_bound", uvc_bound_rows)):
+        for r in source_rows:
+            scheme = r.get("scheme") or default_scheme
+            if scheme == "uvc_bound":
+                r["proof_bytes"] = r.get("proof_bytes_compressed",
+                                         r.get("proof_bytes", ""))
+            c = normalize_circuit(r["circuit"])
+            key = (scheme, c, int(r["n"]), int(r["B"]), int(r["step"]))
+            uvc[key] = r
 
     # Groth16 by (circuit, n, step) — deduplicate
     g16 = {}
@@ -136,7 +157,7 @@ def load_all(csv_dir):
 def get_circuit_configs(uvc):
     """Get unique (circuit, n) pairs sorted in paper order."""
     configs = set()
-    for (c, n, B, step) in uvc.keys():
+    for (_, c, n, _, _) in uvc.keys():
         configs.add((c, n))
     return sorted(configs, key=lambda x: circuit_sort_key(x[0], x[1]))
 
@@ -272,21 +293,30 @@ def print_proof_size_table(uvc, g16, nova):
     print("  Proof Size (bytes)")
     print("=" * 60)
 
-    headers = ["Circuit", "n", "Ours", "Groth16", "Nova"]
+    show_scheme = any(scheme == "uvc_bound" for scheme, _, _, _, _ in uvc)
+    headers = (["Circuit", "n", "Scheme", "Ours", "Groth16", "Nova"]
+               if show_scheme else ["Circuit", "n", "Ours", "Groth16", "Nova"])
     rows = []
-
     for circuit, n in configs:
-        # Get any step's data
-        uvc_r = uvc.get((circuit, n, 16, 1), uvc.get((circuit, n, 64, 1), {}))
-        g = g16.get((circuit, n, 1), {})
-        nv = nova.get((circuit, n, 1), {})
-
-        rows.append([
-            CIRCUIT_DISPLAY.get(circuit, circuit), str(n),
-            uvc_r.get("proof_bytes", "---"),
-            g.get("proof_bytes", "---"),
-            nv.get("proof_bytes", "---"),
-        ])
+        schemes = uvc.schemes_for(circuit, n)
+        for scheme in schemes:
+            # Get any step's data for this scheme.
+            uvc_r = uvc.get(
+                (scheme, circuit, n, 16, 1),
+                uvc.get((scheme, circuit, n, 64, 1), {}))
+            row = [
+                CIRCUIT_DISPLAY.get(circuit, circuit), str(n),
+            ]
+            if show_scheme:
+                row.append(
+                    "UVC (state-bound)" if scheme == "uvc_bound"
+                    else "UVC (pre-fix)")
+            row.extend([
+                uvc_r.get("proof_bytes", "---"),
+                g16.get((circuit, n, 1), {}).get("proof_bytes", "---"),
+                nova.get((circuit, n, 1), {}).get("proof_bytes", "---"),
+            ])
+            rows.append(row)
 
     print_table(headers, rows)
 
@@ -382,7 +412,7 @@ def latex_n(n):
     return str(n)
 
 
-def gen_table2_latex(uvc, g16, nova, state_bound=False):
+def gen_table2_latex(uvc, g16, nova):
     """Generate Table 2 (per-step proving + verification + proof size) matching paper."""
     configs = get_circuit_configs(uvc)
 
@@ -412,8 +442,10 @@ def gen_table2_latex(uvc, g16, nova, state_bound=False):
     for ci, (circuit, n) in enumerate(configs):
         num_steps = len(PAPER_STEPS)
 
-        # Get proof sizes (constant across steps)
-        uvc_proof = "160" if state_bound else "128"
+        # Proof sizes are properties of the selected UVC scheme's rows.
+        uvc_proof = uvc.get((circuit, n, 16, 1),
+                            uvc.get((circuit, n, 64, 1), {})).get(
+                                "proof_bytes", "---")
         g16_proof = "128"
         nova_proof = "---"
         nv_any = nova.get((circuit, n, 1))
@@ -606,8 +638,7 @@ def print_latex(csv_dir):
         return
 
     print(gen_table2_latex(
-        uvc, g16, nova,
-        state_bound=os.path.exists(os.path.join(csv_dir, "uvc_bound_results.csv"))))
+        uvc, g16, nova))
     print()
     print()
     print(gen_setup_latex(uvc, g16, nova))
@@ -640,10 +671,7 @@ def main():
             os.makedirs(args.save_dir, exist_ok=True)
 
             with open(os.path.join(args.save_dir, "table_perstep.tex"), "w") as f:
-                f.write(gen_table2_latex(
-                    uvc, g16, nova,
-                    state_bound=os.path.exists(
-                        os.path.join(args.csv_dir, "uvc_bound_results.csv"))))
+                f.write(gen_table2_latex(uvc, g16, nova))
             print(f"  Saved: {args.save_dir}/table_perstep.tex")
 
             with open(os.path.join(args.save_dir, "table_setup.tex"), "w") as f:

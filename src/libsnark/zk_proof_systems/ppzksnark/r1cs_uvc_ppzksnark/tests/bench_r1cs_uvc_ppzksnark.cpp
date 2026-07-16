@@ -23,15 +23,13 @@ recursive proof composition approaches (e.g., Mina/Coda, Halo).
     This is the core advantage of the UVC approach.
 
   Benchmark 3 (Verifier time):
-    Measures verification time at each step. Since the verifier performs
-    a fixed number of pairings. The verifier additionally holds trusted
-    D_prev and checks the reported state increment; with fixed state size,
-    verification cost should be approximately CONSTANT regardless of step count j.
+    Measures verification time at each step. The verifier performs 4 pairings
+    plus a state-commitment increment check; with fixed state size, verification
+    cost should be approximately CONSTANT regardless of step count j.
 
   Benchmark 4 (Proof size):
-    Reports proof size at various steps and B values. The proof consists
-    of exactly 2 G1 + 1 G2 elements regardless of B or j, so proof size
-    should be constant (same as standard Groth16).
+    Reports proof size at various steps and B values. State-bound proofs contain
+    exactly 3 G1 + 1 G2 elements regardless of B or j, for 1274 bits.
 
   Benchmark 5 (Circuit comparison):
     Compares performance between different circuit sizes (multiplier vs
@@ -83,18 +81,18 @@ recursive proof composition approaches (e.g., Mina/Coda, Halo).
       2       ~1.6          PASS
       ...
       10      ~1.6          PASS
-      ← Verification time is approximately constant (~3 pairings)
+      ← Verification time is approximately constant (4 pairings + increment check)
 
     ================================================================
     Benchmark: Proof size (constant across steps and B)
     ================================================================
       B       Step    G1 elts   G2 elts   Size (bits)
-      1       1       2         1         1019
-      5       1       2         1         1019
-      5       5       2         1         1019
-      10      1       2         1         1019
-      10      10      2         1         1019
-      ← Proof is always 2 G1 + 1 G2 = 1019 bits (same as Groth16)
+      1       1       3         1         1274
+      5       1       3         1         1274
+      5       5       3         1         1274
+      10      1       3         1         1274
+      10      10      3         1         1274
+      ← State-bound proof is always 3 G1 + 1 G2 = 1274 bits (pre-fix: 2 G1 + 1 G2 = 1019 bits)
 
     ================================================================
     Benchmark: Circuit size comparison
