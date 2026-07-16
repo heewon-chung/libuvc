@@ -54,7 +54,11 @@ def normalize_circuit(name):
 
 def load_data(csv_dir):
     """Load and index benchmark CSVs."""
+    # State-bound results live in uvc_bound_results.csv (scheme column, new
+    # schema); legacy runs keep uvc_results.csv. Prefer bound rows when both
+    # exist so cumulative curves reflect the current scheme.
     uvc_rows = read_csv(os.path.join(csv_dir, "uvc_results.csv"))
+    uvc_rows += read_csv(os.path.join(csv_dir, "uvc_bound_results.csv"))
     g16_rows = read_csv(os.path.join(csv_dir, "groth16_results.csv"))
     nova_rows = read_csv(os.path.join(csv_dir, "nova_results.csv"))
 
