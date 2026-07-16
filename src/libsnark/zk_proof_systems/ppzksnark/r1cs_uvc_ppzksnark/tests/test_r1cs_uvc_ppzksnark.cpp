@@ -318,6 +318,14 @@ bool test_uvc(
         r1cs_uvc_ppzksnark_proof<ppT> proof = r1cs_uvc_ppzksnark_prover<ppT>(
             keypair.pk, step, primary, auxiliary,
             have_prev ? &prev_proof : nullptr);
+        const bool off_shape = !proof.bind_state && proof.G1_size() == 2 &&
+            proof.G2_size() == 1;
+        printf("* Proof shape: G1=%zu, G2=%zu, size_in_bits=%zu: %s\n",
+               proof.G1_size(), proof.G2_size(), proof.size_in_bits(),
+               off_shape ? "PASS" : "FAIL");
+        if (!off_shape) {
+            all_pass = false;
+        }
 
         /* Verify */
         bool verified = r1cs_uvc_ppzksnark_verifier<ppT>(keypair.vk, step, primary, proof);
@@ -355,6 +363,79 @@ bool test_uvc(
     }
 
     printf("\n%s: %s\n\n", test_name, all_pass ? "ALL PASSED" : "SOME FAILED");
+    return all_pass;
+}
+
+/**
+ * State-bound UVC integration test: verifies every proof against the
+ * caller-held eta-track state commitment and the reported output state.
+ */
+template<typename ppT>
+bool test_uvc_state_bound(
+    const state_transition_circuit<libff::Fr<ppT> > &st_circuit,
+    size_t B,
+    size_t num_steps,
+    const std::vector<std::vector<libff::Fr<ppT> > > &states,
+    const std::vector<std::vector<libff::Fr<ppT> > > &transitions,
+    const std::vector<std::vector<libff::Fr<ppT> > > &step_witnesses,
+    const char *test_name)
+{
+    typedef libff::Fr<ppT> FieldT;
+
+    printf("================================================================\n");
+    printf("State-bound UVC Test: %s (B=%zu, steps=%zu)\n", test_name, B, num_steps);
+    printf("================================================================\n");
+
+    const auto keypair = r1cs_uvc_ppzksnark_generator<ppT>(st_circuit, B, true);
+    bool all_pass = true;
+    libff::G1<ppT> D_prev = libff::G1<ppT>::zero();
+    libff::G1<ppT> final_D_prev = D_prev;
+    r1cs_uvc_ppzksnark_proof<ppT> prev_proof;
+    bool have_prev = false;
+
+    for (size_t step = 1; step <= num_steps; ++step)
+    {
+        const auto assignment = build_composed_assignment(
+            st_circuit, step, states, transitions, step_witnesses);
+        const auto proof = r1cs_uvc_ppzksnark_prover<ppT>(
+            keypair.pk, step, assignment.first, assignment.second,
+            have_prev ? &prev_proof : nullptr);
+        const bool shape = proof.bind_state && proof.G1_size() == 3 &&
+            proof.G2_size() == 1;
+        printf("  Step %zu: G1=%zu, G2=%zu, size_in_bits=%zu, shape=%s\n",
+               step, proof.G1_size(), proof.G2_size(), proof.size_in_bits(),
+               shape ? "PASS" : "FAIL");
+        const bool accepted = r1cs_uvc_ppzksnark_verifier<ppT>(
+            keypair.vk, step, assignment.first, states[step], proof, D_prev);
+        printf("  Step %zu: state-bound verify=%s\n",
+               step, accepted ? "PASS" : "FAIL");
+        all_pass &= shape && accepted;
+        if (step == num_steps) {
+            final_D_prev = D_prev;
+        }
+        if (accepted) {
+            D_prev = proof.g_D;
+        }
+        prev_proof = proof;
+        have_prev = true;
+    }
+
+    if (all_pass && num_steps >= 1)
+    {
+        std::vector<FieldT> bad_reported_state = states[num_steps];
+        bad_reported_state[0] += FieldT::one();
+        const auto assignment = build_composed_assignment(
+            st_circuit, num_steps, states, transitions, step_witnesses);
+        const bool bad_accepted = r1cs_uvc_ppzksnark_verifier<ppT>(
+            keypair.vk, num_steps, assignment.first, bad_reported_state,
+            prev_proof, final_D_prev);
+        printf("  Soundness (wrong reported state rejected): %s\n",
+               !bad_accepted ? "PASS" : "FAIL");
+        all_pass &= !bad_accepted;
+    }
+
+    printf("\n%s state-bound: %s\n\n",
+           test_name, all_pass ? "ALL PASSED" : "SOME FAILED");
     return all_pass;
 }
 
@@ -460,6 +541,39 @@ bool test_two_state_mult_3_steps()
     };
 
     return test_uvc<ppT>(st, B, num_steps, states, transitions, witnesses, "Two-state mult (a*t, b*t) (3 steps)");
+}
+
+template<typename ppT>
+bool test_multiplier_3_steps_state_bound()
+{
+    typedef libff::Fr<ppT> FieldT;
+    const auto st = make_multiplier_circuit<FieldT>();
+    const std::vector<std::vector<FieldT> > states = {
+        {FieldT(3)}, {FieldT(15)}, {FieldT(105)}, {FieldT(210)}
+    };
+    const std::vector<std::vector<FieldT> > transitions = {
+        {FieldT(5)}, {FieldT(7)}, {FieldT(2)}
+    };
+    const std::vector<std::vector<FieldT> > witnesses = { {}, {}, {} };
+    return test_uvc_state_bound<ppT>(
+        st, 3, 3, states, transitions, witnesses, "Multiplier s*=t (3 steps)");
+}
+
+template<typename ppT>
+bool test_two_state_mult_3_steps_state_bound()
+{
+    typedef libff::Fr<ppT> FieldT;
+    const auto st = make_two_state_mult_circuit<FieldT>();
+    const std::vector<std::vector<FieldT> > states = {
+        {FieldT(2), FieldT(3)}, {FieldT(10), FieldT(15)},
+        {FieldT(30), FieldT(45)}, {FieldT(60), FieldT(90)}
+    };
+    const std::vector<std::vector<FieldT> > transitions = {
+        {FieldT(5)}, {FieldT(3)}, {FieldT(2)}
+    };
+    const std::vector<std::vector<FieldT> > witnesses = { {}, {}, {} };
+    return test_uvc_state_bound<ppT>(
+        st, 4, 3, states, transitions, witnesses, "Two-state mult (a*t, b*t) (3 steps)");
 }
 
 /**
@@ -595,6 +709,9 @@ int main()
 
     /* Test 2: Multi-wire state vector (two-state multiplier, 3 steps) */
     all_pass &= test_two_state_mult_3_steps<libff::alt_bn128_pp>();
+    /* State-bound variants: eta-track state commitment and D carry. */
+    all_pass &= test_multiplier_3_steps_state_bound<libff::alt_bn128_pp>();
+    all_pass &= test_two_state_mult_3_steps_state_bound<libff::alt_bn128_pp>();
 
     /* Test 3: Over-provisioned CRS (B=5, only 1 step used) */
     all_pass &= test_partial_compositions<libff::alt_bn128_pp>();

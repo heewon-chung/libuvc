@@ -290,6 +290,81 @@ bool run_e2e_uvc(
     return pass;
 }
 
+/**
+ * State-bound end-to-end UVC test: verifies every accepted proof with its
+ * reported output state and caller-held prior eta-track commitment.
+ */
+template<typename ppT>
+bool run_e2e_uvc_bound(
+    const state_transition_circuit<libff::Fr<ppT> > &st,
+    size_t B,
+    size_t num_steps,
+    const std::vector<std::vector<libff::Fr<ppT> > > &states,
+    const std::vector<std::vector<libff::Fr<ppT> > > &transitions,
+    const std::vector<std::vector<libff::Fr<ppT> > > &witnesses,
+    const char *name)
+{
+    typedef libff::Fr<ppT> FieldT;
+
+    printf("  State-bound chain: %s\n", name);
+    const auto kp = r1cs_uvc_ppzksnark_generator<ppT>(st, B, true);
+    bool pass = true;
+    libff::G1<ppT> D_prev = libff::G1<ppT>::zero();
+    libff::G1<ppT> final_D_prev = D_prev;
+    r1cs_uvc_ppzksnark_proof<ppT> prev;
+    bool have_prev = false;
+
+    for (size_t step = 1; step <= num_steps; ++step)
+    {
+        const auto assign = build_composed_assignment(st, step, states, transitions, witnesses);
+        const auto cs_j = build_composed_constraint_system(st, step);
+        if (!cs_j.is_satisfied(assign.first, assign.second)) {
+            printf("  State-bound step %zu: CS NOT satisfied!\n", step);
+            return false;
+        }
+
+        const auto proof = r1cs_uvc_ppzksnark_prover<ppT>(
+            kp.pk, step, assign.first, assign.second, have_prev ? &prev : nullptr);
+        const bool accepted = r1cs_uvc_ppzksnark_verifier<ppT>(
+            kp.vk, step, assign.first, states[step], proof, D_prev);
+        printf("  State-bound step %zu (%s): verify=%s\n",
+               step, step == 1 ? "base" : "incremental",
+               accepted ? "PASS" : "FAIL");
+        pass &= accepted;
+        if (step == num_steps) {
+            final_D_prev = D_prev;
+        }
+        if (accepted) {
+            D_prev = proof.g_D;
+        }
+        prev = proof;
+        have_prev = true;
+    }
+
+    if (pass && num_steps >= 1)
+    {
+        const auto assign = build_composed_assignment(
+            st, num_steps, states, transitions, witnesses);
+        auto bad_primary = assign.first;
+        bad_primary[0] += FieldT::one();
+        const bool bad_primary_accepted = r1cs_uvc_ppzksnark_verifier<ppT>(
+            kp.vk, num_steps, bad_primary, states[num_steps], prev, final_D_prev);
+        printf("  State-bound soundness (corrupt primary): %s\n",
+               !bad_primary_accepted ? "rejected (PASS)" : "accepted (FAIL)");
+        pass &= !bad_primary_accepted;
+
+        std::vector<FieldT> bad_reported_state = states[num_steps];
+        bad_reported_state[0] += FieldT::one();
+        const bool bad_state_accepted = r1cs_uvc_ppzksnark_verifier<ppT>(
+            kp.vk, num_steps, assign.first, bad_reported_state, prev, final_D_prev);
+        printf("  State-bound soundness (corrupt reported state): %s\n",
+               !bad_state_accepted ? "rejected (PASS)" : "accepted (FAIL)");
+        pass &= !bad_state_accepted;
+    }
+
+    return pass;
+}
+
 
 /* ======================================================================== */
 /* Category A: Dimension tests (4)                                          */
@@ -677,7 +752,8 @@ bool test_e2e_poly_eval()
         {FieldT(6)}, {FieldT(60)}, {FieldT(720)}
     };
 
-    return run_e2e_uvc<ppT>(st, 3, 3, states, transitions, witnesses, "poly_eval");
+    return run_e2e_uvc<ppT>(st, 3, 3, states, transitions, witnesses, "poly_eval") &&
+        run_e2e_uvc_bound<ppT>(st, 3, 3, states, transitions, witnesses, "poly_eval");
 }
 
 template<typename ppT>
@@ -698,7 +774,8 @@ bool test_e2e_three_state()
     };
     std::vector<std::vector<FieldT> > witnesses = { {}, {} };
 
-    return run_e2e_uvc<ppT>(st, 3, 2, states, transitions, witnesses, "three_state");
+    return run_e2e_uvc<ppT>(st, 3, 2, states, transitions, witnesses, "three_state") &&
+        run_e2e_uvc_bound<ppT>(st, 3, 2, states, transitions, witnesses, "three_state");
 }
 
 template<typename ppT>
@@ -720,7 +797,8 @@ bool test_e2e_chained_cube()
         {FieldT(6), FieldT(18)}, {FieldT(108), FieldT(216)}
     };
 
-    return run_e2e_uvc<ppT>(st, 3, 2, states, transitions, witnesses, "chained_cube");
+    return run_e2e_uvc<ppT>(st, 3, 2, states, transitions, witnesses, "chained_cube") &&
+        run_e2e_uvc_bound<ppT>(st, 3, 2, states, transitions, witnesses, "chained_cube");
 }
 
 template<typename ppT>
@@ -744,7 +822,8 @@ bool test_e2e_cross_multiply()
         {FieldT(10), FieldT(21)}, {FieldT(210), FieldT(210)}
     };
 
-    return run_e2e_uvc<ppT>(st, 3, 2, states, transitions, witnesses, "cross_multiply");
+    return run_e2e_uvc<ppT>(st, 3, 2, states, transitions, witnesses, "cross_multiply") &&
+        run_e2e_uvc_bound<ppT>(st, 3, 2, states, transitions, witnesses, "cross_multiply");
 }
 
 
@@ -816,6 +895,8 @@ bool test_many_steps_poly_eval()
         have_prev = true;
     }
 
+    pass &= run_e2e_uvc_bound<ppT>(
+        st, B, B, states, transitions, witnesses, "poly_eval 10-step stress");
     printf("  Result: %s\n", pass ? "PASS" : "FAIL");
     return pass;
 }
