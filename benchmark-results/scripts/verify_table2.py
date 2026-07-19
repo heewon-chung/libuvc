@@ -10,6 +10,7 @@ Usage:
 import argparse
 import csv
 import sys
+import math
 
 
 CANONICAL_UVC_HEADER = [
@@ -31,6 +32,14 @@ EXPECTED_CONFIGS = [
     ("scalable", 16384, 16),
     ("scalable", 16384, 64),
 ]
+
+
+def canonical_integer(value):
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return None
+    return parsed if str(parsed) == value else None
 
 
 def read_canonical_uvc(path):
@@ -61,8 +70,12 @@ def verify(input_path):
     rows = read_canonical_uvc(input_path)
     data = {}
     duplicate_keys = []
-    for row in rows:
-        key = (row["circuit"], int(row["n"]), int(row["B"]), int(row["step"]))
+    for row_number, row in enumerate(rows, 2):
+        key_values = [canonical_integer(row[field]) for field in ("n", "B", "step")]
+        if any(value is None for value in key_values):
+            print(f"FAIL: row {row_number} has noncanonical n/B/step coordinates")
+            return 1
+        key = (row["circuit"], key_values[0], key_values[1], key_values[2])
         if key in data:
             duplicate_keys.append(key)
         data[key] = row
@@ -107,15 +120,12 @@ def verify(input_path):
                     value = float(row[field])
                 except (KeyError, TypeError, ValueError):
                     value = 0
-                if value <= 0:
+                if not math.isfinite(value) or value <= 0:
                     issues.append(f"step={step} {field}={row.get(field, '')}")
             for field in ("proof_bytes", "proof_bytes_compressed"):
-                try:
-                    proof_bytes = int(row[field])
-                except (KeyError, TypeError, ValueError):
-                    proof_bytes = 0
+                proof_bytes = canonical_integer(row.get(field))
                 if proof_bytes != 160:
-                    issues.append(f"step={step} {field}={row.get(field, '')} (expected 160)")
+                    issues.append(f"step={step} {field}={row.get(field, '')} (expected canonical 160)")
             try:
                 verify_ms = float(row["verify_ms"])
             except (KeyError, TypeError, ValueError):
