@@ -120,6 +120,7 @@ def main(argv):
     groth_rows = read_rows(groth_path, GROTH16_HEADER)
     validate_rows(groth_rows, groth_path, GROTH16_HEADER[3:])
     groth_index = {(row["circuit"], int(row["n"]), int(row["step"])) for _, row in groth_rows}
+    require_unique(groth_rows, groth_path, ("circuit", "n", "step"))
 
     schemes = manifest.get("schemes", [])
     if not isinstance(schemes, list):
@@ -130,8 +131,12 @@ def main(argv):
         nova_rows = read_rows(nova_path, NOVA_HEADER)
         validate_rows(nova_rows, nova_path, NOVA_HEADER[3:])
         nova_index = {(row["circuit"], int(row["n"]), int(row["step"])) for _, row in nova_rows}
+        require_unique(nova_rows, nova_path, ("circuit", "n", "step"))
 
     errors = []
+    expected_uvc = set()
+    expected_groth = set()
+    expected_nova = set()
     for coordinate in manifest["coordinates"]:
         try:
             circuit = coordinate["circuit"]
@@ -147,12 +152,22 @@ def main(argv):
         for step in steps:
             if not isinstance(step, int):
                 fail("Non-integer manifest step for %s n=%d B=%d" % (circuit, n, bound))
+            expected_uvc.add((circuit, n, bound, step))
+            expected_groth.add((circuit, n, step))
+            if "nova" in schemes:
+                expected_nova.add((circuit, n, step))
             if (circuit, n, bound, step) not in uvc_index:
                 errors.append("Missing UVC row for %s n=%d B=%d step=%d" % (circuit, n, bound, step))
             if (circuit, n, step) not in groth_index:
                 errors.append("Missing Groth16 row for %s n=%d B=%d step=%d" % (circuit, n, bound, step))
             if "nova" in schemes and (circuit, n, step) not in nova_index:
                 errors.append("Missing Nova row for %s n=%d B=%d step=%d" % (circuit, n, bound, step))
+    for key in sorted(uvc_index - expected_uvc):
+        errors.append("Unexpected UVC row for %s n=%d B=%d step=%d" % key)
+    for key in sorted(groth_index - expected_groth):
+        errors.append("Unexpected Groth16 row for %s n=%d step=%d" % key)
+    for key in sorted(nova_index - expected_nova):
+        errors.append("Unexpected Nova row for %s n=%d step=%d" % key)
     if errors:
         raise ValueError("Completeness check failed:\n" + "\n".join(errors))
     return 0

@@ -57,17 +57,16 @@ CONFIGS=(
     "sensor_fusion:8:256"
     "sensor_fusion:8:1024"
 )
+GROTH16_CONFIGS=(
+    "sensor_fusion:4:1024"
+    "sensor_fusion:6:1024"
+    "sensor_fusion:8:1024"
+)
 
 # Nova configs (steps parameter = number of folding steps)
 NOVA_CONFIGS=(
-    "sensor_fusion:4:64"
-    "sensor_fusion:4:256"
     "sensor_fusion:4:1024"
-    "sensor_fusion:6:64"
-    "sensor_fusion:6:256"
     "sensor_fusion:6:1024"
-    "sensor_fusion:8:64"
-    "sensor_fusion:8:256"
     "sensor_fusion:8:1024"
 )
 
@@ -79,6 +78,10 @@ while [[ $# -gt 0 ]]; do
             TAG="iot-quick"
             REPS=2
             CONFIGS=(
+                "sensor_fusion:4:64"
+                "sensor_fusion:8:64"
+            )
+            GROTH16_CONFIGS=(
                 "sensor_fusion:4:64"
                 "sensor_fusion:8:64"
             )
@@ -104,14 +107,14 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 UVC_RESULTS="uvc_results.csv"
-BENCH_MODE_ARGS=()
 
 if $QUICK; then
     BENCH_VERIFY_ARGS=(--verify-measured-only)
 else
     BENCH_VERIFY_ARGS=()
 fi
-BENCH_COMMIT="$(git -C "$PROJECT_DIR" rev-parse --short HEAD)"
+BENCH_COMMIT_FULL="$(git -C "$PROJECT_DIR" rev-parse HEAD)"
+BENCH_COMMIT="${BENCH_COMMIT_FULL:0:7}"
 
 write_coordinate_manifest() {
     python3 - "$CSV_DIR/manifest.json" "$MODE" "${CONFIGS[@]}" -- "${NOVA_CONFIGS[@]}" <<'PY'
@@ -155,13 +158,30 @@ PY
 }
 
 write_run_manifest() {
-    local full_commit compiler machine timestamp csv_hashes
-    full_commit="$(git -C "$PROJECT_DIR" rev-parse HEAD)"
+    local compiler machine timestamp csv_hashes current_commit
+    current_commit="$(git -C "$PROJECT_DIR" rev-parse HEAD)"
+    if [[ "$current_commit" != "$BENCH_COMMIT_FULL" ]]; then
+        echo "ERROR: repository HEAD changed during benchmark run: $BENCH_COMMIT_FULL -> $current_commit"
+        exit 1
+    fi
+    if [[ -f "$CSV_DIR/uvc_results.csv" ]]; then
+        python3 - "$CSV_DIR/uvc_results.csv" "$BENCH_COMMIT" <<'PY'
+import csv
+import sys
+
+path, expected = sys.argv[1:]
+with open(path, newline="") as source:
+    rows = list(csv.DictReader(source))
+bad = [index for index, row in enumerate(rows, 2) if row.get("commit") != expected]
+if bad:
+    raise SystemExit(f"ERROR: {path}: row commits do not match run commit {expected}: {bad}")
+PY
+    fi
     compiler="$(c++ --version | head -1)"
     machine="$(uname -m) $(sysctl -n machdep.cpu.brand_string 2>/dev/null || uname -a)"
     timestamp="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
     csv_hashes="$(shasum -a 256 "$CSV_DIR"/*.csv)"
-    RUN_MANIFEST_COMMIT="$full_commit" \
+    RUN_MANIFEST_COMMIT="$BENCH_COMMIT_FULL" \
     RUN_MANIFEST_COMPILER="$compiler" \
     RUN_MANIFEST_MACHINE="$machine" \
     RUN_MANIFEST_TIMESTAMP="$timestamp" \
@@ -228,7 +248,7 @@ echo ""
     echo "Compiler: $(c++ --version 2>/dev/null | head -1 || echo unknown)"
     echo "Build:    Release -O2 -march=native"
     echo "Reps:     $REPS"
-    echo "Configs:  ${#CONFIGS[@]} C++ + ${#NOVA_CONFIGS[@]} Nova"
+    echo "Configs:  ${#CONFIGS[@]} UVC + ${#GROTH16_CONFIGS[@]} Groth16 + ${#NOVA_CONFIGS[@]} Nova"
 } > "$OUT_DIR/system_info.txt"
 
 cat "$OUT_DIR/system_info.txt"
@@ -313,7 +333,7 @@ run_cpp() {
     echo ""
     echo "============================================================"
     echo "  C++ IoT Sensor Fusion: UVC + Groth16"
-    echo "  Configurations: ${#CONFIGS[@]}"
+    echo "  Configurations: ${#CONFIGS[@]} UVC + ${#GROTH16_CONFIGS[@]} Groth16"
     echo "============================================================"
     echo ""
 
@@ -322,11 +342,22 @@ run_cpp() {
         IFS=: read -r circuit K B <<< "$config"
         i=$((i + 1))
 
-        run_bench "[$i/${#CONFIGS[@]}] $circuit K=$K B=$B" \
+        run_bench "[UVC $i/${#CONFIGS[@]}] $circuit K=$K B=$B" \
             "$BENCH" \
-            --circuit "$circuit" --n "$K" --B "$B" \
+            --circuit "$circuit" --n "$K" --B "$B" --scheme uvc \
             --output-dir "$CSV_DIR" --reps "$REPS" --commit "$BENCH_COMMIT" \
-            ${BENCH_MODE_ARGS[@]+"${BENCH_MODE_ARGS[@]}"} ${BENCH_VERIFY_ARGS[@]+"${BENCH_VERIFY_ARGS[@]}"}
+            ${BENCH_VERIFY_ARGS[@]+"${BENCH_VERIFY_ARGS[@]}"}
+    done
+
+    i=0
+    for config in "${GROTH16_CONFIGS[@]}"; do
+        IFS=: read -r circuit K B <<< "$config"
+        i=$((i + 1))
+
+        run_bench "[Groth16 $i/${#GROTH16_CONFIGS[@]}] $circuit K=$K max-step=$B" \
+            "$BENCH" \
+            --circuit "$circuit" --n "$K" --B "$B" --scheme groth16 \
+            --output-dir "$CSV_DIR" --reps "$REPS" --commit "$BENCH_COMMIT"
     done
 
     echo ""

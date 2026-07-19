@@ -59,10 +59,31 @@ def get_expected_steps(B):
 
 def verify(input_path):
     rows = read_canonical_uvc(input_path)
-    data = {
-        (row["circuit"], int(row["n"]), int(row["B"]), int(row["step"])): row
-        for row in rows
+    data = {}
+    duplicate_keys = []
+    for row in rows:
+        key = (row["circuit"], int(row["n"]), int(row["B"]), int(row["step"]))
+        if key in data:
+            duplicate_keys.append(key)
+        data[key] = row
+    if duplicate_keys:
+        print(f"FAIL: duplicate UVC coordinates: {sorted(set(duplicate_keys))}")
+        return 1
+
+    expected_keys = {
+        (circuit, n, B, step)
+        for circuit, n, B in EXPECTED_CONFIGS
+        for step in get_expected_steps(B)
     }
+    unexpected_keys = sorted(set(data) - expected_keys)
+    if unexpected_keys:
+        print(f"FAIL: unexpected UVC coordinates: {unexpected_keys}")
+        return 1
+
+    commits = {row.get("commit", "") for row in rows}
+    if len(commits) != 1 or "" in commits:
+        print(f"FAIL: UVC rows must share one non-empty commit, got {sorted(commits)}")
+        return 1
     failures = []
     passed = 0
 
@@ -88,6 +109,13 @@ def verify(input_path):
                     value = 0
                 if value <= 0:
                     issues.append(f"step={step} {field}={row.get(field, '')}")
+            for field in ("proof_bytes", "proof_bytes_compressed"):
+                try:
+                    proof_bytes = int(row[field])
+                except (KeyError, TypeError, ValueError):
+                    proof_bytes = 0
+                if proof_bytes != 160:
+                    issues.append(f"step={step} {field}={row.get(field, '')} (expected 160)")
             try:
                 verify_ms = float(row["verify_ms"])
             except (KeyError, TypeError, ValueError):

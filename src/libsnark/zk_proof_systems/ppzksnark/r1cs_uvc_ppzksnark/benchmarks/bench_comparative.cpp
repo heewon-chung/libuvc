@@ -54,6 +54,7 @@ struct BenchConfig {
     std::string commit;     /* short git commit hash */
     size_t reps;            /* timing repetitions */
     bool verify_measured_only = false; /* pre-check only measured steps */
+    std::string scheme = "both"; /* "uvc", "groth16", or "both" */
 };
 
 /* ======================================================================== */
@@ -407,7 +408,8 @@ BenchConfig parse_args(int argc, char *argv[])
              strcmp(argv[i], "--B") == 0 ||
              strcmp(argv[i], "--output-dir") == 0 ||
              strcmp(argv[i], "--commit") == 0 ||
-             strcmp(argv[i], "--reps") == 0) &&
+             strcmp(argv[i], "--reps") == 0 ||
+             strcmp(argv[i], "--scheme") == 0) &&
             (i + 1 >= argc || strncmp(argv[i + 1], "--", 2) == 0)) {
             fprintf(stderr, "Missing value for option: %s\n", argv[i]);
             exit(1);
@@ -424,6 +426,8 @@ BenchConfig parse_args(int argc, char *argv[])
             cfg.commit = argv[++i];
         else if (strcmp(argv[i], "--reps") == 0 && i + 1 < argc)
             cfg.reps = (size_t)atol(argv[++i]);
+        else if (strcmp(argv[i], "--scheme") == 0 && i + 1 < argc)
+            cfg.scheme = argv[++i];
         else if (strcmp(argv[i], "--verify-measured-only") == 0)
             cfg.verify_measured_only = true;
         else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
@@ -436,6 +440,7 @@ BenchConfig parse_args(int argc, char *argv[])
             printf("  --output-dir {path}               CSV output directory (default: .)\n");
             printf("  --commit {hash}                   Build commit (default: unknown)\n");
             printf("  --reps {count}                    Timing repetitions (default: 5)\n");
+            printf("  --scheme {uvc|groth16|both}         Scheme(s) to benchmark (default: both)\n");
             printf("  --verify-measured-only             Pre-check only measured UVC proof steps\n");
             exit(0);
         }
@@ -448,6 +453,10 @@ BenchConfig parse_args(int argc, char *argv[])
     /* Normalize circuit alias */
     if (cfg.circuit == "matmul")
         cfg.circuit = "hadamard";
+    if (cfg.scheme != "uvc" && cfg.scheme != "groth16" && cfg.scheme != "both") {
+        fprintf(stderr, "Invalid --scheme value: %s\n", cfg.scheme.c_str());
+        exit(1);
+    }
 
     return cfg;
 }
@@ -472,8 +481,12 @@ int main(int argc, char *argv[])
         cfg.circuit.c_str(), cfg.n, cfg.B, cfg.reps);
     printf("  Output: %s/\n", cfg.output_dir.c_str());
 
-    bench_uvc(cfg);
-    bench_groth16(cfg);
+    if (cfg.scheme == "uvc" || cfg.scheme == "both") {
+        bench_uvc(cfg);
+    }
+    if (cfg.scheme == "groth16" || cfg.scheme == "both") {
+        bench_groth16(cfg);
+    }
 
     printf("\n================================================================\n");
     printf("All benchmarks complete.\n");
