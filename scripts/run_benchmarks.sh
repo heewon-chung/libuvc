@@ -108,6 +108,37 @@ if $QUICK; then
 else
     BENCH_VERIFY_ARGS=()
 fi
+BENCH_SOURCE_PATHS=(
+    "CMakeLists.txt"
+    ".gitmodules"
+    ":(glob)scripts/*.sh"
+    ":(glob)scripts/*.py"
+    ":(glob)benchmark-results/scripts/*.py"
+    ":(glob)src/**/*.cpp"
+    ":(glob)src/**/*.hpp"
+    ":(glob)src/**/*.tcc"
+    "nova-bench/Cargo.toml"
+    "nova-bench/Cargo.lock"
+    ":(glob)nova-bench/src/**/*.rs"
+    "depends"
+)
+
+ensure_benchmark_sources_clean() {
+    local untracked
+    if ! git -C "$PROJECT_DIR" diff --quiet HEAD -- "${BENCH_SOURCE_PATHS[@]}" ||
+       ! git -C "$PROJECT_DIR" diff --cached --quiet HEAD -- "${BENCH_SOURCE_PATHS[@]}"; then
+        echo "ERROR: benchmark source differs from HEAD; commit or revert the benchmark inputs before measuring."
+        exit 1
+    fi
+    untracked="$(git -C "$PROJECT_DIR" ls-files --others --exclude-standard -- "${BENCH_SOURCE_PATHS[@]}")"
+    if [[ -n "$untracked" ]]; then
+        echo "ERROR: untracked benchmark source files are not bound to a commit:"
+        echo "$untracked"
+        exit 1
+    fi
+}
+
+ensure_benchmark_sources_clean
 BENCH_COMMIT_FULL="$(git -C "$PROJECT_DIR" rev-parse HEAD)"
 BENCH_COMMIT="${BENCH_COMMIT_FULL:0:7}"
 
@@ -154,6 +185,7 @@ PY
 
 write_run_manifest() {
     local compiler machine timestamp csv_hashes current_commit
+    ensure_benchmark_sources_clean
     current_commit="$(git -C "$PROJECT_DIR" rev-parse HEAD)"
     if [[ "$current_commit" != "$BENCH_COMMIT_FULL" ]]; then
         echo "ERROR: repository HEAD changed during benchmark run: $BENCH_COMMIT_FULL -> $current_commit"
@@ -490,7 +522,9 @@ case "$MODE" in
         run_cpp
         run_nova
         run_tables
-        run_verify
+        if ! $QUICK; then
+            run_verify
+        fi
 
         echo ""
         echo "============================================================"

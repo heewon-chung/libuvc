@@ -38,7 +38,7 @@ def integer(value, path, row_number, field):
         parsed = int(value)
     except (TypeError, ValueError):
         fail("%s: row %d field %s must be an integer" % (path, row_number, field))
-    if str(parsed) != value.strip():
+    if str(parsed) != value:
         fail("%s: row %d field %s must be an integer" % (path, row_number, field))
     return parsed
 
@@ -113,6 +113,9 @@ def main(argv):
     validate_rows(uvc_rows, uvc_path, UVC_HEADER[5:14])
     for row_number, row in uvc_rows:
         integer(row["B"], uvc_path, row_number, "B")
+        for field in ("proof_bytes", "proof_bytes_compressed"):
+            if integer(row[field], uvc_path, row_number, field) != 160:
+                fail("%s: row %d field %s must equal 160" % (uvc_path, row_number, field))
     require_unique(uvc_rows, uvc_path, ("scheme", "circuit", "n", "B", "step"))
     uvc_index = {(row["circuit"], int(row["n"]), int(row["B"]), int(row["step"])) for _, row in uvc_rows}
 

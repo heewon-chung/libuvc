@@ -358,17 +358,23 @@ void bench_groth16(const BenchConfig &cfg)
 
         /* Verify timing */
         std::vector<double> verify_times;
-        bool verified = false;
+        bool verified = true;
         for (size_t r = 0; r < cfg.reps; ++r)
         {
             bench::BenchTimer t;
             t.start();
-            verified = r1cs_gg_ppzksnark_verifier_strong_IC<ppT>(
+            const bool rep_verified = r1cs_gg_ppzksnark_verifier_strong_IC<ppT>(
                 kp.vk, assign.first, proof);
+            verified = verified && rep_verified;
             t.stop();
             verify_times.push_back(t.elapsed_ms());
         }
         auto verify_stats = bench::compute_stats(verify_times);
+        if (!verified) {
+            fprintf(stderr, "Groth16 verification failed at step %zu.\n", j);
+            fclose(csv);
+            exit(1);
+        }
 
         size_t proof_bytes = (proof.size_in_bits() + 7) / 8;
 
