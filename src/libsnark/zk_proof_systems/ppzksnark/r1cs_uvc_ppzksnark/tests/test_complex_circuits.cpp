@@ -20,12 +20,12 @@ This file adds 4 circuits exercising features not previously covered:
   3. chained_cube  (ss=1, ts=1, n=5, 3 constraints, 2 witnesses)
   4. cross_multiply(ss=2, ts=2, n=8, 4 constraints, 2 witnesses)
 
-=== Test categories (18 tests) ===
+=== Test categories (22 tests) ===
 
   A. Dimension tests (4):         vars, constraints, primary sizes for C_j
   B. Constraint satisfaction (4): correct traces satisfy C_1..C_3
   C. Witness sensitivity (3):     wrong witness -> CS not satisfied
-  D. End-to-end UVC (4):          Setup -> Prove -> Verify + soundness
+  D. End-to-end UVC (8):          Setup -> Prove -> Verify + soundness
   E. Many-step stress (1):        10-step poly_eval chain
   F. Soundness (2):               corrupted proofs and cross-trace rejection
 
@@ -49,6 +49,10 @@ This file adds 4 circuits exercising features not previously covered:
 #include <libff/algebra/curves/alt_bn128/alt_bn128_pp.hpp>
 
 #include <libsnark/zk_proof_systems/ppzksnark/r1cs_uvc_ppzksnark/r1cs_uvc_ppzksnark.hpp>
+#include <libsnark/zk_proof_systems/ppzksnark/r1cs_uvc_ppzksnark/benchmarks/circuits/sensor_fusion_circuit.hpp>
+#include <libsnark/zk_proof_systems/ppzksnark/r1cs_uvc_ppzksnark/benchmarks/circuits/hadamard_circuit.hpp>
+#include <libsnark/zk_proof_systems/ppzksnark/r1cs_uvc_ppzksnark/benchmarks/circuits/mimc_circuit.hpp>
+#include <libsnark/zk_proof_systems/ppzksnark/r1cs_uvc_ppzksnark/benchmarks/circuits/scalable_circuit.hpp>
 
 using namespace libsnark;
 
@@ -243,128 +247,38 @@ bool run_e2e_uvc(
     const char *name)
 {
     typedef libff::Fr<ppT> FieldT;
-
-    auto kp = r1cs_uvc_ppzksnark_generator<ppT>(st, B);
-
-    bool pass = true;
-    r1cs_uvc_ppzksnark_proof<ppT> prev;
-    bool have_prev = false;
-
-    for (size_t step = 1; step <= num_steps; ++step)
-    {
-        auto assign = build_composed_assignment(st, step, states, transitions, witnesses);
-        auto cs_j = build_composed_constraint_system(st, step);
-
-        if (!cs_j.is_satisfied(assign.first, assign.second)) {
-            printf("  Step %zu: CS NOT satisfied!\n", step);
-            pass = false;
-            break;
-        }
-
-        auto proof = r1cs_uvc_ppzksnark_prover<ppT>(
-            kp.pk, step, assign.first, assign.second,
-            have_prev ? &prev : nullptr);
-
-        bool v = r1cs_uvc_ppzksnark_verifier<ppT>(kp.vk, step, assign.first, proof);
-        printf("  Step %zu (%s): verify=%s\n",
-            step, step == 1 ? "base" : "incremental", v ? "PASS" : "FAIL");
-        if (!v) pass = false;
-
-        prev = proof;
-        have_prev = true;
-    }
-
-    /* Soundness: corrupt primary[0] */
-    if (pass && num_steps >= 1)
-    {
-        auto assign = build_composed_assignment(st, num_steps, states, transitions, witnesses);
-        auto bad_primary = assign.first;
-        bad_primary[0] = FieldT::random_element();
-        bool bad_v = r1cs_uvc_ppzksnark_verifier<ppT>(kp.vk, num_steps, bad_primary, prev);
-        printf("  Soundness (corrupt primary): %s\n",
-            !bad_v ? "rejected (PASS)" : "accepted (FAIL)");
-        if (bad_v) pass = false;
-    }
-
-    printf("  Result: %s\n", pass ? "PASS" : "FAIL");
-    return pass;
-}
-
-/**
- * State-bound end-to-end UVC test: verifies every accepted proof with its
- * reported output state and caller-held prior eta-track commitment.
- */
-template<typename ppT>
-bool run_e2e_uvc_bound(
-    const state_transition_circuit<libff::Fr<ppT> > &st,
-    size_t B,
-    size_t num_steps,
-    const std::vector<std::vector<libff::Fr<ppT> > > &states,
-    const std::vector<std::vector<libff::Fr<ppT> > > &transitions,
-    const std::vector<std::vector<libff::Fr<ppT> > > &witnesses,
-    const char *name)
-{
-    typedef libff::Fr<ppT> FieldT;
-
-    printf("  State-bound chain: %s\n", name);
-    const auto kp = r1cs_uvc_ppzksnark_generator<ppT>(st, B, true);
-    bool pass = true;
+    printf("  UVC chain: %s\n", name);
+    const auto kp = r1cs_uvc_ppzksnark_generator<ppT>(st, B);
     libff::G1<ppT> D_prev = libff::G1<ppT>::zero();
     libff::G1<ppT> final_D_prev = D_prev;
     r1cs_uvc_ppzksnark_proof<ppT> prev;
-    bool have_prev = false;
-
-    for (size_t step = 1; step <= num_steps; ++step)
-    {
-        const auto assign = build_composed_assignment(st, step, states, transitions, witnesses);
+    bool pass = true;
+    for (size_t step = 1; step <= num_steps; ++step) {
+        const auto assignment = build_composed_assignment(st, step, states, transitions, witnesses);
         const auto cs_j = build_composed_constraint_system(st, step);
-        if (!cs_j.is_satisfied(assign.first, assign.second)) {
-            printf("  State-bound step %zu: CS NOT satisfied!\n", step);
-            return false;
-        }
-
+        if (!cs_j.is_satisfied(assignment.first, assignment.second)) return false;
         const auto proof = r1cs_uvc_ppzksnark_prover<ppT>(
-            kp.pk, step, assign.first, assign.second, have_prev ? &prev : nullptr);
+            kp.pk, step, assignment.first, assignment.second, step == 1 ? nullptr : &prev);
         const bool accepted = r1cs_uvc_ppzksnark_verifier<ppT>(
-            kp.vk, step, assign.first, states[step], proof, D_prev);
-        printf("  State-bound step %zu (%s): verify=%s\n",
-               step, step == 1 ? "base" : "incremental",
-               accepted ? "PASS" : "FAIL");
+            kp.vk, step, assignment.first, states[step], proof, D_prev);
         pass &= accepted;
-        if (step == num_steps) {
-            final_D_prev = D_prev;
-        }
-        if (accepted) {
-            D_prev = proof.g_D;
-        }
+        if (step == num_steps) final_D_prev = D_prev;
+        if (accepted) D_prev = proof.g_D;
         prev = proof;
-        have_prev = true;
     }
-
-    if (pass && num_steps >= 1)
-    {
-        const auto assign = build_composed_assignment(
-            st, num_steps, states, transitions, witnesses);
-        auto bad_primary = assign.first;
+    if (pass && num_steps >= 1) {
+        const auto assignment = build_composed_assignment(st, num_steps, states, transitions, witnesses);
+        std::vector<FieldT> bad_primary = assignment.first;
         bad_primary[0] += FieldT::one();
-        const bool bad_primary_accepted = r1cs_uvc_ppzksnark_verifier<ppT>(
+        pass &= !r1cs_uvc_ppzksnark_verifier<ppT>(
             kp.vk, num_steps, bad_primary, states[num_steps], prev, final_D_prev);
-        printf("  State-bound soundness (corrupt primary): %s\n",
-               !bad_primary_accepted ? "rejected (PASS)" : "accepted (FAIL)");
-        pass &= !bad_primary_accepted;
-
-        std::vector<FieldT> bad_reported_state = states[num_steps];
-        bad_reported_state[0] += FieldT::one();
-        const bool bad_state_accepted = r1cs_uvc_ppzksnark_verifier<ppT>(
-            kp.vk, num_steps, assign.first, bad_reported_state, prev, final_D_prev);
-        printf("  State-bound soundness (corrupt reported state): %s\n",
-               !bad_state_accepted ? "rejected (PASS)" : "accepted (FAIL)");
-        pass &= !bad_state_accepted;
+        std::vector<FieldT> bad_state = states[num_steps];
+        bad_state[0] += FieldT::one();
+        pass &= !r1cs_uvc_ppzksnark_verifier<ppT>(
+            kp.vk, num_steps, assignment.first, bad_state, prev, final_D_prev);
     }
-
     return pass;
 }
-
 
 /* ======================================================================== */
 /* Category A: Dimension tests (4)                                          */
@@ -752,8 +666,7 @@ bool test_e2e_poly_eval()
         {FieldT(6)}, {FieldT(60)}, {FieldT(720)}
     };
 
-    return run_e2e_uvc<ppT>(st, 3, 3, states, transitions, witnesses, "poly_eval") &&
-        run_e2e_uvc_bound<ppT>(st, 3, 3, states, transitions, witnesses, "poly_eval");
+    return run_e2e_uvc<ppT>(st, 3, 3, states, transitions, witnesses, "poly_eval");
 }
 
 template<typename ppT>
@@ -774,8 +687,7 @@ bool test_e2e_three_state()
     };
     std::vector<std::vector<FieldT> > witnesses = { {}, {} };
 
-    return run_e2e_uvc<ppT>(st, 3, 2, states, transitions, witnesses, "three_state") &&
-        run_e2e_uvc_bound<ppT>(st, 3, 2, states, transitions, witnesses, "three_state");
+    return run_e2e_uvc<ppT>(st, 3, 2, states, transitions, witnesses, "three_state");
 }
 
 template<typename ppT>
@@ -797,8 +709,7 @@ bool test_e2e_chained_cube()
         {FieldT(6), FieldT(18)}, {FieldT(108), FieldT(216)}
     };
 
-    return run_e2e_uvc<ppT>(st, 3, 2, states, transitions, witnesses, "chained_cube") &&
-        run_e2e_uvc_bound<ppT>(st, 3, 2, states, transitions, witnesses, "chained_cube");
+    return run_e2e_uvc<ppT>(st, 3, 2, states, transitions, witnesses, "chained_cube");
 }
 
 template<typename ppT>
@@ -822,8 +733,7 @@ bool test_e2e_cross_multiply()
         {FieldT(10), FieldT(21)}, {FieldT(210), FieldT(210)}
     };
 
-    return run_e2e_uvc<ppT>(st, 3, 2, states, transitions, witnesses, "cross_multiply") &&
-        run_e2e_uvc_bound<ppT>(st, 3, 2, states, transitions, witnesses, "cross_multiply");
+    return run_e2e_uvc<ppT>(st, 3, 2, states, transitions, witnesses, "cross_multiply");
 }
 
 
@@ -873,32 +783,8 @@ bool test_many_steps_poly_eval()
         states.push_back({s});
     }
 
-    /* Run UVC: Setup, Prove, Verify for all 10 steps */
-    auto kp = r1cs_uvc_ppzksnark_generator<ppT>(st, B);
-
-    bool pass = true;
-    r1cs_uvc_ppzksnark_proof<ppT> prev;
-    bool have_prev = false;
-
-    for (size_t step = 1; step <= B; ++step)
-    {
-        auto assign = build_composed_assignment(st, step, states, transitions, witnesses);
-        auto proof = r1cs_uvc_ppzksnark_prover<ppT>(
-            kp.pk, step, assign.first, assign.second,
-            have_prev ? &prev : nullptr);
-
-        bool v = r1cs_uvc_ppzksnark_verifier<ppT>(kp.vk, step, assign.first, proof);
-        printf("  Step %2zu: verify=%s\n", step, v ? "PASS" : "FAIL");
-        if (!v) pass = false;
-
-        prev = proof;
-        have_prev = true;
-    }
-
-    pass &= run_e2e_uvc_bound<ppT>(
+    return run_e2e_uvc<ppT>(
         st, B, B, states, transitions, witnesses, "poly_eval 10-step stress");
-    printf("  Result: %s\n", pass ? "PASS" : "FAIL");
-    return pass;
 }
 
 
@@ -941,7 +827,7 @@ bool test_soundness_bad_proof_elements()
         kp.pk, 2, assign2.first, assign2.second, &proof1);
 
     /* Self-verify should pass */
-    bool v_ok = r1cs_uvc_ppzksnark_verifier<ppT>(kp.vk, 2, assign2.first, proof2);
+    bool v_ok = r1cs_uvc_ppzksnark_verifier<ppT>(kp.vk, 2, assign2.first, states[2], proof2, proof1.g_D);
     printf("  Step 2 self-verify: %s\n", v_ok ? "PASS" : "FAIL");
 
     bool pass = v_ok;
@@ -950,7 +836,7 @@ bool test_soundness_bad_proof_elements()
     {
         auto bad = proof2;
         bad.g_A = libff::G1<ppT>::random_element();
-        bool v = r1cs_uvc_ppzksnark_verifier<ppT>(kp.vk, 2, assign2.first, bad);
+        bool v = r1cs_uvc_ppzksnark_verifier<ppT>(kp.vk, 2, assign2.first, states[2], bad, proof1.g_D);
         printf("  Corrupt g_A: %s\n", !v ? "rejected (PASS)" : "accepted (FAIL)");
         if (v) pass = false;
     }
@@ -959,7 +845,7 @@ bool test_soundness_bad_proof_elements()
     {
         auto bad = proof2;
         bad.g_B = libff::G2<ppT>::random_element();
-        bool v = r1cs_uvc_ppzksnark_verifier<ppT>(kp.vk, 2, assign2.first, bad);
+        bool v = r1cs_uvc_ppzksnark_verifier<ppT>(kp.vk, 2, assign2.first, states[2], bad, proof1.g_D);
         printf("  Corrupt g_B: %s\n", !v ? "rejected (PASS)" : "accepted (FAIL)");
         if (v) pass = false;
     }
@@ -968,7 +854,7 @@ bool test_soundness_bad_proof_elements()
     {
         auto bad = proof2;
         bad.g_C = libff::G1<ppT>::random_element();
-        bool v = r1cs_uvc_ppzksnark_verifier<ppT>(kp.vk, 2, assign2.first, bad);
+        bool v = r1cs_uvc_ppzksnark_verifier<ppT>(kp.vk, 2, assign2.first, states[2], bad, proof1.g_D);
         printf("  Corrupt g_C: %s\n", !v ? "rejected (PASS)" : "accepted (FAIL)");
         if (v) pass = false;
     }
@@ -1012,15 +898,19 @@ bool test_soundness_cross_trace()
     bool pass = true;
 
     /* Self-verify */
-    bool v_AA = r1cs_uvc_ppzksnark_verifier<ppT>(kp.vk, 1, assign_A.first, proof_A);
-    bool v_BB = r1cs_uvc_ppzksnark_verifier<ppT>(kp.vk, 1, assign_B.first, proof_B);
+    bool v_AA = r1cs_uvc_ppzksnark_verifier<ppT>(
+        kp.vk, 1, assign_A.first, states_A[1], proof_A, libff::G1<ppT>::zero());
+    bool v_BB = r1cs_uvc_ppzksnark_verifier<ppT>(
+        kp.vk, 1, assign_B.first, states_B[1], proof_B, libff::G1<ppT>::zero());
     printf("  Trace A self-verify: %s\n", v_AA ? "PASS" : "FAIL");
     printf("  Trace B self-verify: %s\n", v_BB ? "PASS" : "FAIL");
     if (!v_AA || !v_BB) pass = false;
 
     /* Cross-verify: proof_A with primary_B, and vice versa */
-    bool v_AB = r1cs_uvc_ppzksnark_verifier<ppT>(kp.vk, 1, assign_B.first, proof_A);
-    bool v_BA = r1cs_uvc_ppzksnark_verifier<ppT>(kp.vk, 1, assign_A.first, proof_B);
+    bool v_AB = r1cs_uvc_ppzksnark_verifier<ppT>(
+        kp.vk, 1, assign_B.first, states_B[1], proof_A, libff::G1<ppT>::zero());
+    bool v_BA = r1cs_uvc_ppzksnark_verifier<ppT>(
+        kp.vk, 1, assign_A.first, states_A[1], proof_B, libff::G1<ppT>::zero());
     printf("  Proof A + primary B: %s\n", !v_AB ? "rejected (PASS)" : "accepted (FAIL)");
     printf("  Proof B + primary A: %s\n", !v_BA ? "rejected (PASS)" : "accepted (FAIL)");
     if (v_AB || v_BA) pass = false;
@@ -1030,6 +920,57 @@ bool test_soundness_cross_trace()
 }
 
 
+template<typename ppT>
+bool test_e2e_sensor_fusion_fixture()
+{
+    typedef libff::Fr<ppT> FieldT;
+    const size_t B = 3;
+    std::vector<std::vector<FieldT> > states, transitions, witnesses;
+    const state_transition_circuit<FieldT> st = make_sensor_fusion_circuit<FieldT>(4);
+    make_sensor_fusion_trace<FieldT>(B, 4, states, transitions, witnesses);
+    const bool pass = run_e2e_uvc<ppT>(st, B, B, states, transitions, witnesses, "sensor fusion K=4");
+    printf("  production sensor fusion chain: %s\n", pass ? "PASS" : "FAIL");
+    return pass;
+}
+
+template<typename ppT>
+bool test_e2e_hadamard_fixture()
+{
+    typedef libff::Fr<ppT> FieldT;
+    const size_t B = 3;
+    std::vector<std::vector<FieldT> > states, transitions, witnesses;
+    const state_transition_circuit<FieldT> st = make_hadamard_circuit<FieldT>(4);
+    make_hadamard_trace<FieldT>(B, 4, states, transitions, witnesses);
+    const bool pass = run_e2e_uvc<ppT>(st, B, B, states, transitions, witnesses, "hadamard dim=4");
+    printf("  production hadamard chain: %s\n", pass ? "PASS" : "FAIL");
+    return pass;
+}
+
+template<typename ppT>
+bool test_e2e_mimc_fixture()
+{
+    typedef libff::Fr<ppT> FieldT;
+    const size_t B = 3;
+    std::vector<std::vector<FieldT> > states, transitions, witnesses;
+    const state_transition_circuit<FieldT> st = make_mimc_circuit<FieldT>(4);
+    make_mimc_trace<FieldT>(B, 4, states, transitions, witnesses);
+    const bool pass = run_e2e_uvc<ppT>(st, B, B, states, transitions, witnesses, "MiMC rounds=4");
+    printf("  production MiMC chain: %s\n", pass ? "PASS" : "FAIL");
+    return pass;
+}
+
+template<typename ppT>
+bool test_e2e_scalable_fixture()
+{
+    typedef libff::Fr<ppT> FieldT;
+    const size_t B = 3;
+    std::vector<std::vector<FieldT> > states, transitions, witnesses;
+    const state_transition_circuit<FieldT> st = make_scalable_circuit<FieldT>(8);
+    make_scalable_trace<FieldT>(B, 8, states, transitions, witnesses);
+    const bool pass = run_e2e_uvc<ppT>(st, B, B, states, transitions, witnesses, "scalable constraints=8");
+    printf("  production scalable chain: %s\n", pass ? "PASS" : "FAIL");
+    return pass;
+}
 /* ======================================================================== */
 /* Main                                                                     */
 /* ======================================================================== */
@@ -1067,6 +1008,10 @@ int main()
     all_pass &= test_e2e_three_state<libff::alt_bn128_pp>();
     all_pass &= test_e2e_chained_cube<libff::alt_bn128_pp>();
     all_pass &= test_e2e_cross_multiply<libff::alt_bn128_pp>();
+    all_pass &= test_e2e_sensor_fusion_fixture<libff::alt_bn128_pp>();
+    all_pass &= test_e2e_hadamard_fixture<libff::alt_bn128_pp>();
+    all_pass &= test_e2e_mimc_fixture<libff::alt_bn128_pp>();
+    all_pass &= test_e2e_scalable_fixture<libff::alt_bn128_pp>();
 
     /* E. Many-step stress */
     all_pass &= test_many_steps_poly_eval<libff::alt_bn128_pp>();
@@ -1076,7 +1021,7 @@ int main()
     all_pass &= test_soundness_cross_trace<libff::alt_bn128_pp>();
 
     printf("\n================================================================\n");
-    printf("complex circuits: %s\n", all_pass ? "ALL 18 PASSED" : "SOME FAILED");
+    printf("complex circuits: %s\n", all_pass ? "ALL 22 PASSED" : "SOME FAILED");
     printf("================================================================\n");
     return all_pass ? 0 : 1;
 }

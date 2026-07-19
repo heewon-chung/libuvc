@@ -15,6 +15,7 @@ for the R1CS Updatable Verifiable Computation (UVC) scheme.
 #include <algorithm>
 #include <vector>
 #include <cassert>
+#include <stdexcept>
 
 #include <libff/algebra/curves/public_params.hpp>
 
@@ -83,6 +84,40 @@ enum class uvc_wire_class {
 };
 
 /*
+ * Release-effective validation of the state-transition wire layout.
+ * Throws std::logic_error on malformed metadata (B = 0, state/transition
+ * sizes exceeding the per-step wire count, or state-output positions that
+ * fall outside the composed wire range). Called before any helper indexes
+ * a class table so the fail-hard partition invariant cannot be preceded
+ * by out-of-bounds writes.
+ */
+template<typename FieldT>
+void uvc_validate_layout(
+    const state_transition_circuit<FieldT> &st_circuit,
+    const size_t B)
+{
+    const size_t n = st_circuit.wires_per_step();
+    const size_t ss = st_circuit.state_size;
+    const size_t ts = st_circuit.transition_size;
+    if (B < 1) {
+        throw std::logic_error("uvc: composition bound B must be >= 1");
+    }
+    if (ss == 0 || ss > n || ts > n || 2 * ss + ts > n) {
+        throw std::logic_error(
+            "uvc: malformed state-transition layout "
+            "(need 0 < state_size and 2*state_size + transition_size <= wires_per_step)");
+    }
+    const size_t new_per_step = n - ss;
+    const size_t total_vars = n + (B - 1) * new_per_step;
+    /* Last step's state-output slice must fit inside the composed wires. */
+    const size_t last_output_end = (B - 1) * new_per_step + ss + ts + ss;
+    if (last_output_end > total_vars) {
+        throw std::logic_error(
+            "uvc: state-output wires fall outside the composed circuit");
+    }
+}
+
+/*
  * Returns I^st in increasing composed-wire order. The position for state
  * component i (0-based) of step k (1-based) is (k - 1) * state_size + i.
  */
@@ -91,7 +126,7 @@ std::vector<size_t> uvc_state_output_indices(
     const state_transition_circuit<FieldT> &st_circuit,
     const size_t B)
 {
-    assert(B >= 1);
+    uvc_validate_layout(st_circuit, B);
 
     const size_t ss = st_circuit.state_size;
     const size_t ts = st_circuit.transition_size;
@@ -124,7 +159,7 @@ std::vector<uvc_wire_class> uvc_wire_classes(
     const state_transition_circuit<FieldT> &st_circuit,
     const size_t B)
 {
-    assert(B >= 1);
+    uvc_validate_layout(st_circuit, B);
 
     const size_t total_vars = st_circuit.wires_per_step() +
                               (B - 1) * st_circuit.num_new_wires_per_step();
@@ -185,6 +220,14 @@ bool uvc_check_track_disjointness(
     if (B == 0 ||
         total_vars != st_circuit.wires_per_step() +
                       (B - 1) * st_circuit.num_new_wires_per_step()) {
+        return false;
+    }
+    /* Malformed layouts throw in uvc_validate_layout (via the helpers);
+       this checker keeps its boolean contract and reports them as
+       violations instead of propagating. */
+    try {
+        uvc_validate_layout(st_circuit, B);
+    } catch (const std::logic_error &) {
         return false;
     }
 

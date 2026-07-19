@@ -8,7 +8,6 @@
 #
 # Usage:
 #   ./scripts/run_iot_benchmarks.sh              # Full state-bound paper-grade run
-#   ./scripts/run_iot_benchmarks.sh --legacy     # Pre-fix compatibility run
 #   ./scripts/run_iot_benchmarks.sh --quick      # Quick state-bound smoke test
 #   ./scripts/run_iot_benchmarks.sh --cpp-only   # C++ benchmarks only (UVC + Groth16)
 #   ./scripts/run_iot_benchmarks.sh --nova-only  # Nova benchmarks only (Rust)
@@ -16,7 +15,7 @@
 #
 # Output:
 #   results/YYYY-MM-DD_HHMMSS_TAG/
-#     csv/uvc_bound_results.csv (state-bound; uvc_results.csv with --legacy)
+#     csv/uvc_bound_results.csv
 #     csv/groth16_results.csv
 #     csv/nova_results.csv
 #     tables/*.tex
@@ -34,7 +33,6 @@ NOVA_DIR="$PROJECT_DIR/nova-bench"
 TAG="paper_v2"
 REPS=10
 MODE="all"
-LEGACY=false
 QUICK=false
 
 # IoT sensor fusion configurations: (circuit, K, B)
@@ -90,7 +88,6 @@ while [[ $# -gt 0 ]]; do
             )
             shift
             ;;
-        --legacy)     LEGACY=true; shift ;;
         --cpp-only)   MODE="cpp"; shift ;;
         --nova-only)  MODE="nova"; shift ;;
         --tables-only) MODE="tables"; shift ;;
@@ -106,18 +103,8 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
-if $LEGACY; then
-    if $QUICK; then
-        TAG="iot-quick_legacy"
-    else
-        TAG="paper_legacy"
-    fi
-    UVC_RESULTS="uvc_results.csv"
-    BENCH_MODE_ARGS=(--legacy)
-else
-    UVC_RESULTS="uvc_bound_results.csv"
-    BENCH_MODE_ARGS=()
-fi
+UVC_RESULTS="uvc_bound_results.csv"
+BENCH_MODE_ARGS=()
 
 if $QUICK; then
     BENCH_VERIFY_ARGS=(--verify-measured-only)
@@ -306,7 +293,7 @@ run_tables() {
     echo ""
 
     # These consumers receive the run's csv/ directory, which contains either
-    # the state-bound CSV or the explicitly requested legacy CSV.
+    # the state-bound CSV.
     local RESULTS_SCRIPTS_DIR="$PROJECT_DIR/benchmark-results/scripts"
     local MERGE_SCRIPT="$RESULTS_SCRIPTS_DIR/merge_results.py"
     local TABLE_SCRIPT="$RESULTS_SCRIPTS_DIR/gen_latex_tables.py"

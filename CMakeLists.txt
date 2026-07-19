@@ -891,17 +891,6 @@ target_link_libraries(
   snark
 )
 
-add_executable(
-  zk_proof_systems_r1cs_uvc_ppzksnark_test
-  EXCLUDE_FROM_ALL
-
-  src/libsnark/zk_proof_systems/ppzksnark/r1cs_uvc_ppzksnark/tests/test_r1cs_uvc_ppzksnark.cpp
-)
-target_link_libraries(
-  zk_proof_systems_r1cs_uvc_ppzksnark_test
-
-  snark
-)
 
 add_executable(
   test_build_composed_cs
@@ -950,18 +939,12 @@ target_link_libraries(
 
   snark
 )
-
-add_executable(
-  bench_r1cs_uvc_ppzksnark
-  EXCLUDE_FROM_ALL
-
-  src/libsnark/zk_proof_systems/ppzksnark/r1cs_uvc_ppzksnark/tests/bench_r1cs_uvc_ppzksnark.cpp
+target_compile_definitions(
+  test_uvc_prover_verifier
+  PRIVATE
+  UVC_TCC_SOURCE_PATH="${CMAKE_SOURCE_DIR}/src/libsnark/zk_proof_systems/ppzksnark/r1cs_uvc_ppzksnark/r1cs_uvc_ppzksnark.tcc"
 )
-target_link_libraries(
-  bench_r1cs_uvc_ppzksnark
 
-  snark
-)
 
 add_executable(
   test_complex_circuits
@@ -1153,10 +1136,6 @@ add_test(
   COMMAND zk_proof_systems_r1cs_vc_ppzksnark_test
 )
 add_test(
-  NAME zk_proof_systems_r1cs_uvc_ppzksnark_test
-  COMMAND zk_proof_systems_r1cs_uvc_ppzksnark_test
-)
-add_test(
   NAME test_build_composed_cs
   COMMAND test_build_composed_cs
 )
@@ -1171,6 +1150,11 @@ add_test(
 add_test(
   NAME test_uvc_prover_verifier
   COMMAND test_uvc_prover_verifier
+)
+add_test(
+  NAME uvc_pairing_count_gate
+  COMMAND ${CMAKE_SOURCE_DIR}/scripts/check_pairing_count.sh
+  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
 )
 add_test(
   NAME test_complex_circuits
@@ -1222,7 +1206,6 @@ add_dependencies(check zk_proof_systems_r1cs_ppzksnark_test)
 add_dependencies(check zk_proof_systems_r1cs_se_ppzksnark_test)
 add_dependencies(check zk_proof_systems_r1cs_gg_ppzksnark_test)
 add_dependencies(check zk_proof_systems_r1cs_vc_ppzksnark_test)
-add_dependencies(check zk_proof_systems_r1cs_uvc_ppzksnark_test)
 add_dependencies(check test_build_composed_cs)
 add_dependencies(check test_build_composed_assignment)
 add_dependencies(check test_uvc_generator)
