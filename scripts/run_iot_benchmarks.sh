@@ -273,16 +273,16 @@ build_all() {
     NCPU="$(sysctl -n hw.ncpu 2>/dev/null || nproc 2>/dev/null || echo 4)"
     mkdir -p "$BUILD_DIR"
 
-    if [[ ! -f "$BUILD_DIR/CMakeCache.txt" ]]; then
-        cmake -S "$PROJECT_DIR" -B "$BUILD_DIR" \
-            -DCURVE=ALT_BN128 \
-            -DWITH_PROCPS=OFF \
-            -DWITH_SUPERCOP=OFF \
-            -DUSE_ASM=OFF \
-            -DMULTICORE=ON \
-            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
-            -Wno-dev 2>&1 | tail -5
-    fi
+    # Always (re)configure with the pinned options — idempotent, and it
+    # guarantees a reused cache cannot drift from the recorded provenance.
+    cmake -S "$PROJECT_DIR" -B "$BUILD_DIR" \
+        -DCURVE=ALT_BN128 \
+        -DWITH_PROCPS=OFF \
+        -DWITH_SUPERCOP=OFF \
+        -DUSE_ASM=OFF \
+        -DMULTICORE=ON \
+        -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+        -Wno-dev 2>&1 | tail -5
 
     cmake --build "$BUILD_DIR" --target bench_comparative -j"$NCPU" 2>&1
 
