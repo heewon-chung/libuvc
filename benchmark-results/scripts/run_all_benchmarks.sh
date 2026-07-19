@@ -318,14 +318,14 @@ run_tables() {
 
 # ── Verify data ────────────────────────────────────────────────────
 run_verify() {
-    local COMBINED="$CSVDIR/combined_results.csv"
+    local UVC_RESULTS="$CSVDIR/uvc_results.csv"
 
-    if [[ -f "$SCRIPT_DIR/verify_table2.py" ]] && [[ -f "$COMBINED" ]]; then
+    if [[ -f "$SCRIPT_DIR/verify_table2.py" ]] && [[ -f "$UVC_RESULTS" ]]; then
         echo ""
         echo "------------------------------------------------------------"
         echo "  Verifying data completeness..."
         echo "------------------------------------------------------------"
-        python3 "$SCRIPT_DIR/verify_table2.py" --input "$COMBINED" || true
+        python3 "$SCRIPT_DIR/verify_table2.py" --input "$UVC_RESULTS"
     fi
 }
 

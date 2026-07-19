@@ -15,7 +15,7 @@
 #
 # Output:
 #   results/YYYY-MM-DD_HHMMSS_TAG/
-#     csv/uvc_bound_results.csv
+#     csv/uvc_results.csv
 #     csv/groth16_results.csv
 #     csv/nova_results.csv
 #     tables/*.tex
@@ -103,7 +103,7 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
-UVC_RESULTS="uvc_bound_results.csv"
+UVC_RESULTS="uvc_results.csv"
 BENCH_MODE_ARGS=()
 
 if $QUICK; then
@@ -111,6 +111,83 @@ if $QUICK; then
 else
     BENCH_VERIFY_ARGS=()
 fi
+BENCH_COMMIT="$(git -C "$PROJECT_DIR" rev-parse --short HEAD)"
+
+write_coordinate_manifest() {
+    python3 - "$CSV_DIR/manifest.json" "$MODE" "${CONFIGS[@]}" -- "${NOVA_CONFIGS[@]}" <<'PY'
+import json
+import sys
+
+output, mode, *configs = sys.argv[1:]
+separator = configs.index("--")
+cpp_configs = configs[:separator]
+nova_configs = configs[separator + 1:]
+if mode == "nova":
+    selected_configs = nova_configs
+    schemes = ["nova"]
+elif mode == "cpp":
+    selected_configs = cpp_configs
+    schemes = ["uvc_gamma_v1", "groth16"]
+elif mode == "all":
+    selected_configs = cpp_configs
+    schemes = ["uvc_gamma_v1", "groth16", "nova"]
+else:
+    selected_configs = cpp_configs
+    schemes = []
+
+coordinates = []
+for config in selected_configs:
+    circuit, n, bound = config.split(":")
+    bound = int(bound)
+    steps = []
+    step = 1
+    while step <= bound:
+        steps.append(step)
+        step *= 2
+    if steps[-1] != bound:
+        steps.append(bound)
+    coordinates.append({"circuit": circuit, "n": int(n), "B": bound, "steps": steps})
+
+with open(output, "w") as target:
+    json.dump({"suite": "iot", "schemes": schemes, "coordinates": coordinates}, target)
+    target.write("\n")
+PY
+}
+
+write_run_manifest() {
+    local full_commit compiler machine timestamp csv_hashes
+    full_commit="$(git -C "$PROJECT_DIR" rev-parse HEAD)"
+    compiler="$(c++ --version | head -1)"
+    machine="$(uname -m) $(sysctl -n machdep.cpu.brand_string 2>/dev/null || uname -a)"
+    timestamp="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    csv_hashes="$(shasum -a 256 "$CSV_DIR"/*.csv)"
+    RUN_MANIFEST_COMMIT="$full_commit" \
+    RUN_MANIFEST_COMPILER="$compiler" \
+    RUN_MANIFEST_MACHINE="$machine" \
+    RUN_MANIFEST_TIMESTAMP="$timestamp" \
+    RUN_MANIFEST_HASHES="$csv_hashes" \
+    python3 - "$OUT_DIR/run_manifest.json" <<'PY'
+import json
+import os
+import sys
+
+hashes = {}
+for line in os.environ["RUN_MANIFEST_HASHES"].splitlines():
+    digest, path = line.split(maxsplit=1)
+    hashes[os.path.basename(path)] = digest
+with open(sys.argv[1], "w") as target:
+    json.dump({
+        "git_commit": os.environ["RUN_MANIFEST_COMMIT"],
+        "compiler_version": os.environ["RUN_MANIFEST_COMPILER"],
+        "cmake_options": "-DCURVE=ALT_BN128 -DWITH_PROCPS=OFF -DWITH_SUPERCOP=OFF -DUSE_ASM=OFF -DMULTICORE=ON -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -Wno-dev",
+        "machine": os.environ["RUN_MANIFEST_MACHINE"],
+        "timestamp": os.environ["RUN_MANIFEST_TIMESTAMP"],
+        "csv_sha256": hashes,
+    }, target, indent=2, sort_keys=True)
+    target.write("\n")
+PY
+    chmod -R a-w "$OUT_DIR"
+}
 
 
 # ── Output directory ────────────────────────────────────────────────
@@ -122,6 +199,7 @@ mkdir -p "$CSV_DIR" "$TABLE_DIR"
 
 LOG="$OUT_DIR/run.log"
 exec > >(tee -a "$LOG") 2>&1
+write_coordinate_manifest
 
 echo "============================================================"
 echo "  UVC IoT Sensor Fusion Benchmarks"
@@ -197,7 +275,12 @@ build_all() {
 
     if [[ ! -f "$BUILD_DIR/CMakeCache.txt" ]]; then
         cmake -S "$PROJECT_DIR" -B "$BUILD_DIR" \
+            -DCURVE=ALT_BN128 \
+            -DWITH_PROCPS=OFF \
+            -DWITH_SUPERCOP=OFF \
+            -DUSE_ASM=OFF \
             -DMULTICORE=ON \
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
             -Wno-dev 2>&1 | tail -5
     fi
 
@@ -242,7 +325,7 @@ run_cpp() {
         run_bench "[$i/${#CONFIGS[@]}] $circuit K=$K B=$B" \
             "$BENCH" \
             --circuit "$circuit" --n "$K" --B "$B" \
-            --output-dir "$CSV_DIR" --reps "$REPS" \
+            --output-dir "$CSV_DIR" --reps "$REPS" --commit "$BENCH_COMMIT" \
             ${BENCH_MODE_ARGS[@]+"${BENCH_MODE_ARGS[@]}"} ${BENCH_VERIFY_ARGS[@]+"${BENCH_VERIFY_ARGS[@]}"}
     done
 
@@ -325,6 +408,7 @@ run_tables() {
     echo ""
     echo "  Tables: $TABLE_DIR/"
     ls "$TABLE_DIR/" 2>/dev/null || echo "  (no tables generated)"
+    python3 "$PROJECT_DIR/scripts/verify_completeness.py" "$CSV_DIR"
 }
 
 # ── Main ────────────────────────────────────────────────────────────
@@ -371,6 +455,7 @@ case "$MODE" in
         echo "  System info: $OUT_DIR/system_info.txt"
         echo "  Full log:    $LOG"
         echo "============================================================"
+        write_run_manifest
         ;;
     *)
         echo "Unknown mode: $MODE"

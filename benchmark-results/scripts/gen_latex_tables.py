@@ -16,12 +16,33 @@ import sys
 from collections import defaultdict
 
 
+CANONICAL_UVC_HEADER = [
+    "scheme", "circuit", "n", "B", "step", "setup_ms", "prove_ms",
+    "verify_ms", "crs_g1_published", "crs_g2", "vk_st_abc_g1",
+    "proof_bytes", "proof_bytes_compressed", "peak_mem_mb", "commit",
+]
+
+
 def read_csv(filepath):
     if not os.path.exists(filepath):
         print(f"  Warning: {filepath} not found, skipping.")
         return []
     with open(filepath, 'r') as f:
         return list(csv.DictReader(f))
+
+
+def read_canonical_uvc(filepath):
+    try:
+        with open(filepath, newline='') as f:
+            reader = csv.DictReader(f)
+            if reader.fieldnames != CANONICAL_UVC_HEADER:
+                raise ValueError
+            rows = list(reader)
+    except (OSError, ValueError):
+        sys.exit(f"FATAL: {filepath}: not a canonical uvc_gamma_v1 results file (expected canonical header and scheme)")
+    if any(row.get("scheme") != "uvc_gamma_v1" for row in rows):
+        sys.exit(f"FATAL: {filepath}: not a canonical uvc_gamma_v1 results file (expected canonical header and scheme)")
+    return rows
 
 
 def fmt_ms(val_str):
@@ -63,10 +84,10 @@ def dedup_groth16(rows):
 
 
 def gen_uvc_table(uvc_rows, output_path):
-    """Generate Table 2: UVC performance across labeled schemes and B values."""
+    """Generate Table 2: UVC performance across B values."""
     groups = defaultdict(list)
     for r in uvc_rows:
-        key = (r.get('display_scheme', 'UVC (pre-fix)'), r['circuit'], int(r['n']), int(r['B']))
+        key = ("UVC", r['circuit'], int(r['n']), int(r['B']))
         groups[key].append(r)
 
     with open(output_path, 'w') as f:
@@ -363,13 +384,8 @@ def main():
 
     os.makedirs(args.output_dir, exist_ok=True)
 
-    uvc_rows = read_csv(os.path.join(args.input_dir, 'uvc_results.csv'))
-    for row in uvc_rows:
-        row['display_scheme'] = 'UVC (pre-fix)'
-    uvc_bound_rows = read_csv(os.path.join(args.input_dir, 'uvc_bound_results.csv'))
-    for row in uvc_bound_rows:
-        row['display_scheme'] = 'UVC (state-bound)'
-    uvc_rows.extend(uvc_bound_rows)
+    uvc_rows = read_canonical_uvc(
+        os.path.join(args.input_dir, 'uvc_results.csv'))
     g16_rows = read_csv(os.path.join(args.input_dir, 'groth16_results.csv'))
     nova_rows = read_csv(os.path.join(args.input_dir, 'nova_results.csv'))
 

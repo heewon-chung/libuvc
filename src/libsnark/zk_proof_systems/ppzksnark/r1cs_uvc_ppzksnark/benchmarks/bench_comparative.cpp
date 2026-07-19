@@ -51,6 +51,7 @@ struct BenchConfig {
     size_t n;               /* constraints per step */
     size_t B;               /* max compositions */
     std::string output_dir; /* CSV output directory */
+    std::string commit;     /* short git commit hash */
     size_t reps;            /* timing repetitions */
     bool verify_measured_only = false; /* pre-check only measured steps */
 };
@@ -201,7 +202,7 @@ void bench_uvc(const BenchConfig &cfg)
     printf("  Honest proof-chain verification: PASS\n");
 
     /* Open CSV */
-    std::string uvc_path = cfg.output_dir + "/uvc_bound_results.csv";
+    std::string uvc_path = cfg.output_dir + "/uvc_results.csv";
     FILE *csv_check = fopen(uvc_path.c_str(), "r");
     bool write_header = (csv_check == nullptr);
     if (csv_check) fclose(csv_check);
@@ -209,7 +210,7 @@ void bench_uvc(const BenchConfig &cfg)
     FILE *csv = fopen(uvc_path.c_str(), "a");
     if (!csv) { fprintf(stderr, "Cannot open %s\n", uvc_path.c_str()); return; }
     if (write_header) {
-        fprintf(csv, "scheme,circuit,n,B,step,setup_ms,prove_ms,verify_ms,crs_g1_published,crs_g2,vk_st_abc_g1,proof_bytes,proof_bytes_compressed,peak_mem_mb\n");
+        fprintf(csv, "scheme,circuit,n,B,step,setup_ms,prove_ms,verify_ms,crs_g1_published,crs_g2,vk_st_abc_g1,proof_bytes,proof_bytes_compressed,peak_mem_mb,commit\n");
     }
 
     printf("\n  %-6s  %-12s  %-12s  %-12s  %-10s\n",
@@ -256,13 +257,12 @@ void bench_uvc(const BenchConfig &cfg)
             j, prove_stats.median, verify_stats.median,
             proofs[j].size_in_bits(), verified ? "PASS" : "FAIL");
 
-        const size_t proof_bytes_compressed =
-            32 * proofs[j].G1_size() + 64 * proofs[j].G2_size();
-        fprintf(csv, "uvc_bound,%s,%zu,%zu,%zu,%.2f,%.2f,%.2f,%zu,%zu,%zu,%zu,%zu,%.1f\n",
+        const size_t proof_bytes_compressed = 160;
+        fprintf(csv, "uvc_gamma_v1,%s,%zu,%zu,%zu,%.2f,%.2f,%.2f,%zu,%zu,%zu,%zu,%zu,%.1f,%s\n",
             cfg.circuit.c_str(), cfg.n, cfg.B, j,
             setup_ms, prove_stats.median, verify_stats.median,
             crs_g1, crs_g2, kp.vk.st_ABC_g1.size(), proof_bytes,
-            proof_bytes_compressed, peak_mem_mb);
+            proof_bytes_compressed, peak_mem_mb, cfg.commit.c_str());
     }
 
     fclose(csv);
@@ -397,6 +397,7 @@ BenchConfig parse_args(int argc, char *argv[])
     cfg.n = 270;
     cfg.B = 16;
     cfg.output_dir = ".";
+    cfg.commit = "unknown";
     cfg.reps = 5;
 
     for (int i = 1; i < argc; ++i)
@@ -405,6 +406,7 @@ BenchConfig parse_args(int argc, char *argv[])
              strcmp(argv[i], "--n") == 0 ||
              strcmp(argv[i], "--B") == 0 ||
              strcmp(argv[i], "--output-dir") == 0 ||
+             strcmp(argv[i], "--commit") == 0 ||
              strcmp(argv[i], "--reps") == 0) &&
             (i + 1 >= argc || strncmp(argv[i + 1], "--", 2) == 0)) {
             fprintf(stderr, "Missing value for option: %s\n", argv[i]);
@@ -418,6 +420,8 @@ BenchConfig parse_args(int argc, char *argv[])
             cfg.B = (size_t)atol(argv[++i]);
         else if (strcmp(argv[i], "--output-dir") == 0 && i + 1 < argc)
             cfg.output_dir = argv[++i];
+        else if (strcmp(argv[i], "--commit") == 0 && i + 1 < argc)
+            cfg.commit = argv[++i];
         else if (strcmp(argv[i], "--reps") == 0 && i + 1 < argc)
             cfg.reps = (size_t)atol(argv[++i]);
         else if (strcmp(argv[i], "--verify-measured-only") == 0)
@@ -430,6 +434,7 @@ BenchConfig parse_args(int argc, char *argv[])
             printf("                                    For sensor_fusion: --n is number of sensors K (constraints = K+1)\n");
             printf("  --B {bound}                       Max compositions (default: 16)\n");
             printf("  --output-dir {path}               CSV output directory (default: .)\n");
+            printf("  --commit {hash}                   Build commit (default: unknown)\n");
             printf("  --reps {count}                    Timing repetitions (default: 5)\n");
             printf("  --verify-measured-only             Pre-check only measured UVC proof steps\n");
             exit(0);

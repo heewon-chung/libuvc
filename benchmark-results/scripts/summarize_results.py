@@ -34,12 +34,33 @@ PAPER_B_VALUES = [16, 64]
 
 # ── CSV readers ───────────────────────────────────────────────────
 
+CANONICAL_UVC_HEADER = [
+    "scheme", "circuit", "n", "B", "step", "setup_ms", "prove_ms",
+    "verify_ms", "crs_g1_published", "crs_g2", "vk_st_abc_g1",
+    "proof_bytes", "proof_bytes_compressed", "peak_mem_mb", "commit",
+]
+
+
 def read_csv(path):
     """Read a CSV file, return list of dicts."""
     if not os.path.exists(path):
         return []
     with open(path) as f:
         return list(csv.DictReader(f))
+
+
+def read_canonical_uvc(path):
+    try:
+        with open(path, newline="") as f:
+            reader = csv.DictReader(f)
+            if reader.fieldnames != CANONICAL_UVC_HEADER:
+                raise ValueError
+            rows = list(reader)
+    except (OSError, ValueError):
+        sys.exit(f"FATAL: {path}: not a canonical uvc_gamma_v1 results file (expected canonical header and scheme)")
+    if any(row.get("scheme") != "uvc_gamma_v1" for row in rows):
+        sys.exit(f"FATAL: {path}: not a canonical uvc_gamma_v1 results file (expected canonical header and scheme)")
+    return rows
 
 
 def normalize_circuit(name):
@@ -100,41 +121,20 @@ def fmt_sec(val):
         return f"{v:.0f}"
 
 
-class UVCResults(dict):
-    """Scheme-aware UVC rows with legacy-preferring compatibility lookups."""
-
-    def get(self, key, default=None):
-        if len(key) == 4:
-            return super().get(('uvc_prefix',) + key,
-                               super().get(('uvc_bound',) + key, default))
-        return super().get(key, default)
-
-    def schemes_for(self, circuit, n):
-        return sorted({scheme for scheme, c, row_n, _, _ in self
-                       if c == circuit and row_n == n})
-
 # ── Data loading ──────────────────────────────────────────────────
 
 def load_all(csv_dir):
     """Load and index all benchmark CSVs."""
-    uvc_rows = read_csv(os.path.join(csv_dir, "uvc_results.csv"))
-    uvc_bound_rows = read_csv(os.path.join(csv_dir, "uvc_bound_results.csv"))
+    uvc_rows = read_canonical_uvc(os.path.join(csv_dir, "uvc_results.csv"))
     g16_rows = read_csv(os.path.join(csv_dir, "groth16_results.csv"))
     nova_rows = read_csv(os.path.join(csv_dir, "nova_results.csv"))
 
-    # Index UVC by scheme and coordinate.  Preserve legacy rows as uvc_prefix
-    # when their CSV predates the scheme column.
-    uvc = UVCResults()
-    for default_scheme, source_rows in (
-            ("uvc_prefix", uvc_rows), ("uvc_bound", uvc_bound_rows)):
-        for r in source_rows:
-            scheme = r.get("scheme") or default_scheme
-            if scheme == "uvc_bound":
-                r["proof_bytes"] = r.get("proof_bytes_compressed",
-                                         r.get("proof_bytes", ""))
-            c = normalize_circuit(r["circuit"])
-            key = (scheme, c, int(r["n"]), int(r["B"]), int(r["step"]))
-            uvc[key] = r
+    # Index UVC by coordinate.
+    uvc = {}
+    for r in uvc_rows:
+        c = normalize_circuit(r["circuit"])
+        key = (c, int(r["n"]), int(r["B"]), int(r["step"]))
+        uvc[key] = r
 
     # Groth16 by (circuit, n, step) — deduplicate
     g16 = {}
@@ -157,7 +157,7 @@ def load_all(csv_dir):
 def get_circuit_configs(uvc):
     """Get unique (circuit, n) pairs sorted in paper order."""
     configs = set()
-    for (_, c, n, _, _) in uvc.keys():
+    for (c, n, _, _) in uvc.keys():
         configs.add((c, n))
     return sorted(configs, key=lambda x: circuit_sort_key(x[0], x[1]))
 
@@ -293,30 +293,17 @@ def print_proof_size_table(uvc, g16, nova):
     print("  Proof Size (bytes)")
     print("=" * 60)
 
-    show_scheme = any(scheme == "uvc_bound" for scheme, _, _, _, _ in uvc)
-    headers = (["Circuit", "n", "Scheme", "Ours", "Groth16", "Nova"]
-               if show_scheme else ["Circuit", "n", "Ours", "Groth16", "Nova"])
+    headers = ["Circuit", "n", "Ours", "Groth16", "Nova"]
     rows = []
     for circuit, n in configs:
-        schemes = uvc.schemes_for(circuit, n)
-        for scheme in schemes:
-            # Get any step's data for this scheme.
-            uvc_r = uvc.get(
-                (scheme, circuit, n, 16, 1),
-                uvc.get((scheme, circuit, n, 64, 1), {}))
-            row = [
-                CIRCUIT_DISPLAY.get(circuit, circuit), str(n),
-            ]
-            if show_scheme:
-                row.append(
-                    "UVC (state-bound)" if scheme == "uvc_bound"
-                    else "UVC (pre-fix)")
-            row.extend([
-                uvc_r.get("proof_bytes", "---"),
-                g16.get((circuit, n, 1), {}).get("proof_bytes", "---"),
-                nova.get((circuit, n, 1), {}).get("proof_bytes", "---"),
-            ])
-            rows.append(row)
+        uvc_r = uvc.get((circuit, n, 16, 1),
+                        uvc.get((circuit, n, 64, 1), {}))
+        rows.append([
+            CIRCUIT_DISPLAY.get(circuit, circuit), str(n),
+            uvc_r.get("proof_bytes", "---"),
+            g16.get((circuit, n, 1), {}).get("proof_bytes", "---"),
+            nova.get((circuit, n, 1), {}).get("proof_bytes", "---"),
+        ])
 
     print_table(headers, rows)
 
