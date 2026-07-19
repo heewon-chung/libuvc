@@ -27,7 +27,7 @@ BUILD_DIR="$PROJECT_DIR/build"
 NOVA_DIR="$PROJECT_DIR/nova-bench"
 
 # ── Defaults (paper-grade) ──────────────────────────────────────────
-TAG="paper_v2"
+TAG="paper"
 REPS=10
 MODE="all"
 QUICK=false
