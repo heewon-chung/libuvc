@@ -216,6 +216,12 @@ OUT_DIR="$PROJECT_DIR/results/${TIMESTAMP}_${TAG}"
 CSV_DIR="$OUT_DIR/csv"
 TABLE_DIR="$OUT_DIR/tables"
 mkdir -p "$CSV_DIR" "$TABLE_DIR"
+seal_completed_run() {
+    if [[ -f "$OUT_DIR/run_manifest.json" ]]; then
+        chmod -R a-w "$OUT_DIR"
+    fi
+}
+trap seal_completed_run EXIT
 
 LOG="$OUT_DIR/run.log"
 exec > >(tee -a "$LOG") 2>&1
