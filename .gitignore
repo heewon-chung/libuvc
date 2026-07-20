@@ -70,6 +70,7 @@ __pycache__/
 # Local agent/workflow state
 /.gjc/
 /.omc/state/
+/.omc/sessions/
 
 # OS and editor metadata
 .DS_Store
