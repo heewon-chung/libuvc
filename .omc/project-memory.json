@@ -1,7 +1,7 @@
 {
   "version": "1.0.0",
-  "lastScanned": 1774148382961,
-  "projectRoot": "/Users/heewonchung/Documents/04-Dev/01-research/active/libsnark-uvc",
+  "lastScanned": 1784522251875,
+  "projectRoot": "/Users/heewonchung/Documents/orca/workspace/libsnark-uvc/fix-knowledge-soundness",
   "techStack": {
     "languages": [
       {
@@ -48,7 +48,7 @@
       "path": "benchmark-results",
       "purpose": null,
       "fileCount": 2,
-      "lastAccessed": 1774148382946,
+      "lastAccessed": 1784522251837,
       "keyFiles": [
         "AGENTS.md"
       ]
@@ -57,20 +57,33 @@
       "path": "build",
       "purpose": "Build output",
       "fileCount": 12,
-      "lastAccessed": 1774148382946,
+      "lastAccessed": 1784522251837,
+      "keyFiles": [
+        "CMakeCache 2.txt",
+        "CMakeCache.txt",
+        "CTestTestfile.cmake",
+        "DartConfiguration.tcl",
+        "Makefile"
+      ]
+    },
+    "build-bench": {
+      "path": "build-bench",
+      "purpose": null,
+      "fileCount": 34,
+      "lastAccessed": 1784522251837,
       "keyFiles": [
         "CMakeCache.txt",
         "CTestTestfile.cmake",
         "DartConfiguration.tcl",
         "Makefile",
-        "bench_comparative 2"
+        "bench_comparative"
       ]
     },
     "depends": {
       "path": "depends",
       "purpose": null,
-      "fileCount": 1,
-      "lastAccessed": 1774148382947,
+      "fileCount": 2,
+      "lastAccessed": 1784522251838,
       "keyFiles": [
         "CMakeLists.txt"
       ]
@@ -78,8 +91,8 @@
     "nova-bench": {
       "path": "nova-bench",
       "purpose": null,
-      "fileCount": 3,
-      "lastAccessed": 1774148382947,
+      "fileCount": 4,
+      "lastAccessed": 1784522251838,
       "keyFiles": [
         "AGENTS.md",
         "Cargo.lock",
@@ -90,34 +103,34 @@
       "path": "results",
       "purpose": null,
       "fileCount": 1,
-      "lastAccessed": 1774148382948,
+      "lastAccessed": 1784522251838,
       "keyFiles": []
     },
     "scripts": {
       "path": "scripts",
       "purpose": "Build/utility scripts",
-      "fileCount": 5,
-      "lastAccessed": 1774148382948,
+      "fileCount": 8,
+      "lastAccessed": 1784522251838,
       "keyFiles": [
         "AGENTS.md",
+        "check_pairing_count.sh",
         "cumulative_prove_time.py",
         "run_benchmarks.sh",
-        "run_iot_benchmarks.sh",
-        "summarize_results.py"
+        "run_iot_benchmarks.sh"
       ]
     },
     "src": {
       "path": "src",
       "purpose": "Source code",
       "fileCount": 1,
-      "lastAccessed": 1774148382949,
+      "lastAccessed": 1784522251839,
       "keyFiles": []
     },
     "tinyram_examples": {
       "path": "tinyram_examples",
       "purpose": null,
       "fileCount": 6,
-      "lastAccessed": 1774148382950,
+      "lastAccessed": 1784522251839,
       "keyFiles": [
         "README.md",
         "process_assembly",
@@ -129,8 +142,8 @@
     "benchmark-results/scripts": {
       "path": "benchmark-results/scripts",
       "purpose": "Build/utility scripts",
-      "fileCount": 7,
-      "lastAccessed": 1774148382950,
+      "fileCount": 6,
+      "lastAccessed": 1784522251839,
       "keyFiles": [
         "benchmark_result.txt",
         "gen_latex_tables.py",
@@ -140,20 +153,13 @@
     "nova-bench/src": {
       "path": "nova-bench/src",
       "purpose": "Source code",
-      "fileCount": 1,
-      "lastAccessed": 1774148382950,
+      "fileCount": 2,
+      "lastAccessed": 1784522251839,
       "keyFiles": [
         "main.rs"
       ]
     }
   },
-  "hotPaths": [
-    {
-      "path": "CMakeLists.txt",
-      "accessCount": 3,
-      "lastAccessed": 1774148460843,
-      "type": "file"
-    }
-  ],
+  "hotPaths": [],
   "userDirectives": []
 }

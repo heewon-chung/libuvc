@@ -8,7 +8,6 @@
 #
 # Usage:
 #   ./scripts/run_iot_benchmarks.sh              # Full state-bound paper-grade run
-#   ./scripts/run_iot_benchmarks.sh --legacy     # Pre-fix compatibility run
 #   ./scripts/run_iot_benchmarks.sh --quick      # Quick state-bound smoke test
 #   ./scripts/run_iot_benchmarks.sh --cpp-only   # C++ benchmarks only (UVC + Groth16)
 #   ./scripts/run_iot_benchmarks.sh --nova-only  # Nova benchmarks only (Rust)
@@ -16,7 +15,7 @@
 #
 # Output:
 #   results/YYYY-MM-DD_HHMMSS_TAG/
-#     csv/uvc_bound_results.csv (state-bound; uvc_results.csv with --legacy)
+#     csv/uvc_results.csv
 #     csv/groth16_results.csv
 #     csv/nova_results.csv
 #     tables/*.tex
@@ -31,10 +30,9 @@ BUILD_DIR="$PROJECT_DIR/build"
 NOVA_DIR="$PROJECT_DIR/nova-bench"
 
 # ── Defaults ──────────────────────────────────────────────────────
-TAG="paper_v2"
+TAG="iot"
 REPS=10
 MODE="all"
-LEGACY=false
 QUICK=false
 
 # IoT sensor fusion configurations: (circuit, K, B)
@@ -59,17 +57,16 @@ CONFIGS=(
     "sensor_fusion:8:256"
     "sensor_fusion:8:1024"
 )
+GROTH16_CONFIGS=(
+    "sensor_fusion:4:1024"
+    "sensor_fusion:6:1024"
+    "sensor_fusion:8:1024"
+)
 
 # Nova configs (steps parameter = number of folding steps)
 NOVA_CONFIGS=(
-    "sensor_fusion:4:64"
-    "sensor_fusion:4:256"
     "sensor_fusion:4:1024"
-    "sensor_fusion:6:64"
-    "sensor_fusion:6:256"
     "sensor_fusion:6:1024"
-    "sensor_fusion:8:64"
-    "sensor_fusion:8:256"
     "sensor_fusion:8:1024"
 )
 
@@ -84,13 +81,16 @@ while [[ $# -gt 0 ]]; do
                 "sensor_fusion:4:64"
                 "sensor_fusion:8:64"
             )
+            GROTH16_CONFIGS=(
+                "sensor_fusion:4:64"
+                "sensor_fusion:8:64"
+            )
             NOVA_CONFIGS=(
                 "sensor_fusion:4:64"
                 "sensor_fusion:8:64"
             )
             shift
             ;;
-        --legacy)     LEGACY=true; shift ;;
         --cpp-only)   MODE="cpp"; shift ;;
         --nova-only)  MODE="nova"; shift ;;
         --tables-only) MODE="tables"; shift ;;
@@ -106,24 +106,140 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
-if $LEGACY; then
-    if $QUICK; then
-        TAG="iot-quick_legacy"
-    else
-        TAG="paper_legacy"
-    fi
-    UVC_RESULTS="uvc_results.csv"
-    BENCH_MODE_ARGS=(--legacy)
-else
-    UVC_RESULTS="uvc_bound_results.csv"
-    BENCH_MODE_ARGS=()
-fi
+UVC_RESULTS="uvc_results.csv"
 
 if $QUICK; then
     BENCH_VERIFY_ARGS=(--verify-measured-only)
 else
     BENCH_VERIFY_ARGS=()
 fi
+BENCH_SOURCE_PATHS=(
+    "CMakeLists.txt"
+    ".gitmodules"
+    ":(glob)scripts/*.sh"
+    ":(glob)scripts/*.py"
+    ":(glob)benchmark-results/scripts/*.py"
+    ":(glob)src/**/*.cpp"
+    ":(glob)src/**/*.hpp"
+    ":(glob)src/**/*.tcc"
+    "nova-bench/Cargo.toml"
+    "nova-bench/Cargo.lock"
+    ":(glob)nova-bench/src/**/*.rs"
+    "depends"
+)
+
+ensure_benchmark_sources_clean() {
+    local untracked
+    if ! git -C "$PROJECT_DIR" diff --quiet HEAD -- "${BENCH_SOURCE_PATHS[@]}" ||
+       ! git -C "$PROJECT_DIR" diff --cached --quiet HEAD -- "${BENCH_SOURCE_PATHS[@]}"; then
+        echo "ERROR: benchmark source differs from HEAD; commit or revert the benchmark inputs before measuring."
+        exit 1
+    fi
+    untracked="$(git -C "$PROJECT_DIR" ls-files --others --exclude-standard -- "${BENCH_SOURCE_PATHS[@]}")"
+    if [[ -n "$untracked" ]]; then
+        echo "ERROR: untracked benchmark source files are not bound to a commit:"
+        echo "$untracked"
+        exit 1
+    fi
+}
+
+ensure_benchmark_sources_clean
+BENCH_COMMIT_FULL="$(git -C "$PROJECT_DIR" rev-parse HEAD)"
+BENCH_COMMIT="${BENCH_COMMIT_FULL:0:7}"
+
+write_coordinate_manifest() {
+    python3 - "$CSV_DIR/manifest.json" "$MODE" "${CONFIGS[@]}" -- "${NOVA_CONFIGS[@]}" <<'PY'
+import json
+import sys
+
+output, mode, *configs = sys.argv[1:]
+separator = configs.index("--")
+cpp_configs = configs[:separator]
+nova_configs = configs[separator + 1:]
+if mode == "nova":
+    selected_configs = nova_configs
+    schemes = ["nova"]
+elif mode == "cpp":
+    selected_configs = cpp_configs
+    schemes = ["uvc_gamma_v1", "groth16"]
+elif mode == "all":
+    selected_configs = cpp_configs
+    schemes = ["uvc_gamma_v1", "groth16", "nova"]
+else:
+    selected_configs = cpp_configs
+    schemes = []
+
+coordinates = []
+for config in selected_configs:
+    circuit, n, bound = config.split(":")
+    bound = int(bound)
+    steps = []
+    step = 1
+    while step <= bound:
+        steps.append(step)
+        step *= 2
+    if steps[-1] != bound:
+        steps.append(bound)
+    coordinates.append({"circuit": circuit, "n": int(n), "B": bound, "steps": steps})
+
+with open(output, "w") as target:
+    json.dump({"suite": "iot", "schemes": schemes, "coordinates": coordinates}, target)
+    target.write("\n")
+PY
+}
+
+write_run_manifest() {
+    local compiler machine timestamp csv_hashes current_commit
+    ensure_benchmark_sources_clean
+    current_commit="$(git -C "$PROJECT_DIR" rev-parse HEAD)"
+    if [[ "$current_commit" != "$BENCH_COMMIT_FULL" ]]; then
+        echo "ERROR: repository HEAD changed during benchmark run: $BENCH_COMMIT_FULL -> $current_commit"
+        exit 1
+    fi
+    if [[ -f "$CSV_DIR/uvc_results.csv" ]]; then
+        python3 - "$CSV_DIR/uvc_results.csv" "$BENCH_COMMIT" <<'PY'
+import csv
+import sys
+
+path, expected = sys.argv[1:]
+with open(path, newline="") as source:
+    rows = list(csv.DictReader(source))
+bad = [index for index, row in enumerate(rows, 2) if row.get("commit") != expected]
+if bad:
+    raise SystemExit(f"ERROR: {path}: row commits do not match run commit {expected}: {bad}")
+PY
+    fi
+    compiler="$(c++ --version | head -1)"
+    machine="$(uname -m) $(sysctl -n machdep.cpu.brand_string 2>/dev/null || uname -a)"
+    timestamp="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    csv_hashes="$(shasum -a 256 "$CSV_DIR"/*.csv)"
+    RUN_MANIFEST_COMMIT="$BENCH_COMMIT_FULL" \
+    RUN_MANIFEST_COMPILER="$compiler" \
+    RUN_MANIFEST_MACHINE="$machine" \
+    RUN_MANIFEST_TIMESTAMP="$timestamp" \
+    RUN_MANIFEST_HASHES="$csv_hashes" \
+    python3 - "$OUT_DIR/run_manifest.json" <<'PY'
+import json
+import os
+import sys
+
+hashes = {}
+for line in os.environ["RUN_MANIFEST_HASHES"].splitlines():
+    digest, path = line.split(maxsplit=1)
+    hashes[os.path.basename(path)] = digest
+with open(sys.argv[1], "w") as target:
+    json.dump({
+        "git_commit": os.environ["RUN_MANIFEST_COMMIT"],
+        "compiler_version": os.environ["RUN_MANIFEST_COMPILER"],
+        "cmake_options": "-DCURVE=ALT_BN128 -DWITH_PROCPS=OFF -DWITH_SUPERCOP=OFF -DUSE_ASM=OFF -DMULTICORE=ON -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -Wno-dev",
+        "machine": os.environ["RUN_MANIFEST_MACHINE"],
+        "timestamp": os.environ["RUN_MANIFEST_TIMESTAMP"],
+        "csv_sha256": hashes,
+    }, target, indent=2, sort_keys=True)
+    target.write("\n")
+PY
+    chmod -R a-w "$OUT_DIR"
+}
 
 
 # ── Output directory ────────────────────────────────────────────────
@@ -132,9 +248,16 @@ OUT_DIR="$PROJECT_DIR/results/${TIMESTAMP}_${TAG}"
 CSV_DIR="$OUT_DIR/csv"
 TABLE_DIR="$OUT_DIR/tables"
 mkdir -p "$CSV_DIR" "$TABLE_DIR"
+seal_completed_run() {
+    if [[ -f "$OUT_DIR/run_manifest.json" ]]; then
+        chmod -R a-w "$OUT_DIR"
+    fi
+}
+trap seal_completed_run EXIT
 
 LOG="$OUT_DIR/run.log"
 exec > >(tee -a "$LOG") 2>&1
+write_coordinate_manifest
 
 echo "============================================================"
 echo "  UVC IoT Sensor Fusion Benchmarks"
@@ -163,7 +286,7 @@ echo ""
     echo "Compiler: $(c++ --version 2>/dev/null | head -1 || echo unknown)"
     echo "Build:    Release -O2 -march=native"
     echo "Reps:     $REPS"
-    echo "Configs:  ${#CONFIGS[@]} C++ + ${#NOVA_CONFIGS[@]} Nova"
+    echo "Configs:  ${#CONFIGS[@]} UVC + ${#GROTH16_CONFIGS[@]} Groth16 + ${#NOVA_CONFIGS[@]} Nova"
 } > "$OUT_DIR/system_info.txt"
 
 cat "$OUT_DIR/system_info.txt"
@@ -208,11 +331,16 @@ build_all() {
     NCPU="$(sysctl -n hw.ncpu 2>/dev/null || nproc 2>/dev/null || echo 4)"
     mkdir -p "$BUILD_DIR"
 
-    if [[ ! -f "$BUILD_DIR/CMakeCache.txt" ]]; then
-        cmake -S "$PROJECT_DIR" -B "$BUILD_DIR" \
-            -DMULTICORE=ON \
-            -Wno-dev 2>&1 | tail -5
-    fi
+    # Always (re)configure with the pinned options — idempotent, and it
+    # guarantees a reused cache cannot drift from the recorded provenance.
+    cmake -S "$PROJECT_DIR" -B "$BUILD_DIR" \
+        -DCURVE=ALT_BN128 \
+        -DWITH_PROCPS=OFF \
+        -DWITH_SUPERCOP=OFF \
+        -DUSE_ASM=OFF \
+        -DMULTICORE=ON \
+        -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+        -Wno-dev 2>&1 | tail -5
 
     cmake --build "$BUILD_DIR" --target bench_comparative -j"$NCPU" 2>&1
 
@@ -243,7 +371,7 @@ run_cpp() {
     echo ""
     echo "============================================================"
     echo "  C++ IoT Sensor Fusion: UVC + Groth16"
-    echo "  Configurations: ${#CONFIGS[@]}"
+    echo "  Configurations: ${#CONFIGS[@]} UVC + ${#GROTH16_CONFIGS[@]} Groth16"
     echo "============================================================"
     echo ""
 
@@ -252,11 +380,22 @@ run_cpp() {
         IFS=: read -r circuit K B <<< "$config"
         i=$((i + 1))
 
-        run_bench "[$i/${#CONFIGS[@]}] $circuit K=$K B=$B" \
+        run_bench "[UVC $i/${#CONFIGS[@]}] $circuit K=$K B=$B" \
             "$BENCH" \
-            --circuit "$circuit" --n "$K" --B "$B" \
-            --output-dir "$CSV_DIR" --reps "$REPS" \
-            ${BENCH_MODE_ARGS[@]+"${BENCH_MODE_ARGS[@]}"} ${BENCH_VERIFY_ARGS[@]+"${BENCH_VERIFY_ARGS[@]}"}
+            --circuit "$circuit" --n "$K" --B "$B" --scheme uvc \
+            --output-dir "$CSV_DIR" --reps "$REPS" --commit "$BENCH_COMMIT" \
+            ${BENCH_VERIFY_ARGS[@]+"${BENCH_VERIFY_ARGS[@]}"}
+    done
+
+    i=0
+    for config in "${GROTH16_CONFIGS[@]}"; do
+        IFS=: read -r circuit K B <<< "$config"
+        i=$((i + 1))
+
+        run_bench "[Groth16 $i/${#GROTH16_CONFIGS[@]}] $circuit K=$K max-step=$B" \
+            "$BENCH" \
+            --circuit "$circuit" --n "$K" --B "$B" --scheme groth16 \
+            --output-dir "$CSV_DIR" --reps "$REPS" --commit "$BENCH_COMMIT"
     done
 
     echo ""
@@ -306,7 +445,7 @@ run_tables() {
     echo ""
 
     # These consumers receive the run's csv/ directory, which contains either
-    # the state-bound CSV or the explicitly requested legacy CSV.
+    # the state-bound CSV.
     local RESULTS_SCRIPTS_DIR="$PROJECT_DIR/benchmark-results/scripts"
     local MERGE_SCRIPT="$RESULTS_SCRIPTS_DIR/merge_results.py"
     local TABLE_SCRIPT="$RESULTS_SCRIPTS_DIR/gen_latex_tables.py"
@@ -338,6 +477,7 @@ run_tables() {
     echo ""
     echo "  Tables: $TABLE_DIR/"
     ls "$TABLE_DIR/" 2>/dev/null || echo "  (no tables generated)"
+    python3 "$PROJECT_DIR/scripts/verify_completeness.py" "$CSV_DIR"
 }
 
 # ── Main ────────────────────────────────────────────────────────────
@@ -384,6 +524,7 @@ case "$MODE" in
         echo "  System info: $OUT_DIR/system_info.txt"
         echo "  Full log:    $LOG"
         echo "============================================================"
+        write_run_manifest
         ;;
     *)
         echo "Unknown mode: $MODE"

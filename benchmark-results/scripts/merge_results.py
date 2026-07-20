@@ -13,6 +13,13 @@ import sys
 from collections import defaultdict
 
 
+CANONICAL_UVC_HEADER = [
+    "scheme", "circuit", "n", "B", "step", "setup_ms", "prove_ms",
+    "verify_ms", "crs_g1_published", "crs_g2", "vk_st_abc_g1",
+    "proof_bytes", "proof_bytes_compressed", "peak_mem_mb", "commit",
+]
+
+
 def read_csv(filepath):
     """Read a CSV file and return list of dicts."""
     if not os.path.exists(filepath):
@@ -21,6 +28,20 @@ def read_csv(filepath):
     with open(filepath, 'r') as f:
         reader = csv.DictReader(f)
         return list(reader)
+
+
+def read_canonical_uvc(filepath):
+    try:
+        with open(filepath, newline='') as f:
+            reader = csv.DictReader(f)
+            if reader.fieldnames != CANONICAL_UVC_HEADER:
+                raise ValueError
+            rows = list(reader)
+    except (OSError, ValueError):
+        sys.exit(f"FATAL: {filepath}: not a canonical uvc_gamma_v1 results file (expected canonical header and scheme)")
+    if any(row.get("scheme") != "uvc_gamma_v1" for row in rows):
+        sys.exit(f"FATAL: {filepath}: not a canonical uvc_gamma_v1 results file (expected canonical header and scheme)")
+    return rows
 
 
 def dedup_groth16(rows):
@@ -35,21 +56,17 @@ def dedup_groth16(rows):
 
 def merge_results(input_dir, output_path):
     """Merge results from all three systems."""
-    uvc_rows = read_csv(os.path.join(input_dir, 'uvc_results.csv'))
+    uvc_rows = read_canonical_uvc(os.path.join(input_dir, 'uvc_results.csv'))
     g16_rows = read_csv(os.path.join(input_dir, 'groth16_results.csv'))
     nova_rows = read_csv(os.path.join(input_dir, 'nova_results.csv'))
-    uvc_bound_rows = read_csv(os.path.join(input_dir, 'uvc_bound_results.csv'))
 
     # Deduplicate Groth16 (same circuit run under different B values produces dupes)
     g16_rows = dedup_groth16(g16_rows)
 
-    # Preserve legacy and state-bound rows independently even when their
-    # benchmark coordinates are identical.
     uvc_by_key = {}
-    for scheme, rows in (('uvc_prefix', uvc_rows), ('uvc_bound', uvc_bound_rows)):
-        for r in rows:
-            key = (scheme, r['circuit'], r['n'], r['B'], r['step'])
-            uvc_by_key[key] = r
+    for r in uvc_rows:
+        key = (r['scheme'], r['circuit'], r['n'], r['B'], r['step'])
+        uvc_by_key[key] = r
 
     # Groth16 keyed by (circuit, n, step)
     g16_by_key = {}
@@ -120,7 +137,7 @@ def merge_results(input_dir, output_path):
         writer.writerows(all_rows)
 
     print(f"Combined results written to {output_path}")
-    print(f"  UVC pre-fix rows: {len(uvc_rows)}, UVC state-bound rows: {len(uvc_bound_rows)}, Groth16 rows: {len(g16_rows)}, Nova rows: {len(nova_rows)}")
+    print(f"  UVC rows: {len(uvc_rows)}, Groth16 rows: {len(g16_rows)}, Nova rows: {len(nova_rows)}")
     print(f"  Total combined rows: {len(all_rows)}")
 
 

@@ -51,9 +51,10 @@ struct BenchConfig {
     size_t n;               /* constraints per step */
     size_t B;               /* max compositions */
     std::string output_dir; /* CSV output directory */
+    std::string commit;     /* short git commit hash */
     size_t reps;            /* timing repetitions */
-    bool legacy = false;     /* use pre-fix UVC mode and frozen CSV schema */
     bool verify_measured_only = false; /* pre-check only measured steps */
+    std::string scheme = "both"; /* "uvc", "groth16", or "both" */
 };
 
 /* ======================================================================== */
@@ -135,8 +136,7 @@ build_assignment_for_step(
 void bench_uvc(const BenchConfig &cfg)
 {
     printf("\n================================================================\n");
-    printf("%s Benchmark: circuit=%s, n=%zu, B=%zu\n",
-        cfg.legacy ? "UVC (pre-fix)" : "UVC (state-bound)",
+    printf("UVC (state-bound) Benchmark: circuit=%s, n=%zu, B=%zu\n",
         cfg.circuit.c_str(), cfg.n, cfg.B);
     printf("================================================================\n");
 
@@ -153,31 +153,19 @@ void bench_uvc(const BenchConfig &cfg)
     printf("\n  [Setup] Generating CRS for B=%zu...\n", cfg.B);
     bench::BenchTimer setup_timer;
     setup_timer.start();
-    auto kp = r1cs_uvc_ppzksnark_generator<ppT>(st, cfg.B, !cfg.legacy);
+    auto kp = r1cs_uvc_ppzksnark_generator<ppT>(st, cfg.B);
     setup_timer.stop();
     double setup_ms = setup_timer.elapsed_ms();
 
     /* CRS size */
-    size_t crs_g1;
-    size_t crs_g2;
-    if (cfg.legacy) {
-        crs_g1 = kp.pk.base_pk.A_query.size() + kp.pk.base_pk.L_query.size() +
-                 kp.pk.base_pk.H_query.size() + 2;
-        crs_g2 = kp.pk.base_pk.B_query.domain_size_ + 2;
-        for (const auto &sd : kp.pk.step_data) {
-            crs_g1 += sd.A_query_delta.size() + sd.L_query_delta.size();
-            crs_g2 += sd.B_query_delta.domain_size_;
-        }
-    } else {
-        crs_g1 = kp.pk.base_pk.A_query.size() + kp.pk.base_pk.H_query.size() +
-                 (kp.pk.base_pk.L_query.size() - cfg.B * st.state_size) +
-                 kp.pk.st_query.size() + 2;
-        crs_g2 = kp.pk.base_pk.B_query.domain_size_ + 3;
-        for (const auto &sd : kp.pk.step_data) {
-            crs_g1 += sd.A_query_delta.size() + sd.L_query_delta.size() +
-                      sd.st_query_delta.size();
-            crs_g2 += sd.B_query_delta.domain_size_;
-        }
+    size_t crs_g1 = kp.pk.base_pk.A_query.size() + kp.pk.base_pk.H_query.size() +
+                    (kp.pk.base_pk.L_query.size() - cfg.B * st.state_size) +
+                    kp.pk.st_query.size() + 2;
+    size_t crs_g2 = kp.pk.base_pk.B_query.domain_size_ + 3;
+    for (const auto &sd : kp.pk.step_data) {
+        crs_g1 += sd.A_query_delta.size() + sd.L_query_delta.size() +
+                  sd.st_query_delta.size();
+        crs_g2 += sd.B_query_delta.domain_size_;
     }
     printf("  Setup: %.1f ms, CRS: %zu G1 + %zu G2\n", setup_ms, crs_g1, crs_g2);
 
@@ -194,15 +182,6 @@ void bench_uvc(const BenchConfig &cfg)
             j > 1 ? &proofs[j-1] : nullptr);
     }
 
-    if (!cfg.legacy) {
-        for (size_t j = 1; j <= cfg.B; ++j) {
-            if (!proofs[j].bind_state) {
-                fprintf(stderr, "State-bound UVC proof at step %zu is missing bind_state.\n", j);
-                abort();
-            }
-        }
-    }
-
     auto measured = get_measured_steps(cfg.B);
 
     /* --- Untimed honest-chain verification --- */
@@ -213,12 +192,9 @@ void bench_uvc(const BenchConfig &cfg)
             continue;
         }
 
-        const bool verified = cfg.legacy ?
-            r1cs_uvc_ppzksnark_verifier<ppT>(
-                kp.vk, j, assigns[j].first, proofs[j]) :
-            r1cs_uvc_ppzksnark_verifier<ppT>(
-                kp.vk, j, assigns[j].first, states[j], proofs[j],
-                j > 1 ? proofs[j-1].g_D : libff::G1<ppT>::zero());
+        const bool verified = r1cs_uvc_ppzksnark_verifier<ppT>(
+            kp.vk, j, assigns[j].first, states[j], proofs[j],
+            j > 1 ? proofs[j-1].g_D : libff::G1<ppT>::zero());
         if (!verified) {
             fprintf(stderr, "Honest proof-chain verification failed at step %zu.\n", j);
             abort();
@@ -227,8 +203,7 @@ void bench_uvc(const BenchConfig &cfg)
     printf("  Honest proof-chain verification: PASS\n");
 
     /* Open CSV */
-    std::string uvc_path = cfg.output_dir +
-        (cfg.legacy ? "/uvc_results.csv" : "/uvc_bound_results.csv");
+    std::string uvc_path = cfg.output_dir + "/uvc_results.csv";
     FILE *csv_check = fopen(uvc_path.c_str(), "r");
     bool write_header = (csv_check == nullptr);
     if (csv_check) fclose(csv_check);
@@ -236,11 +211,7 @@ void bench_uvc(const BenchConfig &cfg)
     FILE *csv = fopen(uvc_path.c_str(), "a");
     if (!csv) { fprintf(stderr, "Cannot open %s\n", uvc_path.c_str()); return; }
     if (write_header) {
-        if (cfg.legacy) {
-            fprintf(csv, "circuit,n,B,step,setup_ms,prove_ms,verify_ms,crs_g1,crs_g2,proof_bytes,peak_mem_mb\n");
-        } else {
-            fprintf(csv, "scheme,circuit,n,B,step,setup_ms,prove_ms,verify_ms,crs_g1_published,crs_g2,vk_st_abc_g1,proof_bytes,proof_bytes_compressed,peak_mem_mb\n");
-        }
+        fprintf(csv, "scheme,circuit,n,B,step,setup_ms,prove_ms,verify_ms,crs_g1_published,crs_g2,vk_st_abc_g1,proof_bytes,proof_bytes_compressed,peak_mem_mb,commit\n");
     }
 
     printf("\n  %-6s  %-12s  %-12s  %-12s  %-10s\n",
@@ -271,14 +242,9 @@ void bench_uvc(const BenchConfig &cfg)
         {
             bench::BenchTimer t;
             t.start();
-            if (cfg.legacy) {
-                verified = r1cs_uvc_ppzksnark_verifier<ppT>(
-                    kp.vk, j, assigns[j].first, proofs[j]);
-            } else {
-                verified = r1cs_uvc_ppzksnark_verifier<ppT>(
-                    kp.vk, j, assigns[j].first, states[j], proofs[j],
-                    j > 1 ? proofs[j-1].g_D : libff::G1<ppT>::zero());
-            }
+            verified = r1cs_uvc_ppzksnark_verifier<ppT>(
+                kp.vk, j, assigns[j].first, states[j], proofs[j],
+                j > 1 ? proofs[j-1].g_D : libff::G1<ppT>::zero());
             t.stop();
             verify_times.push_back(t.elapsed_ms());
         }
@@ -292,20 +258,12 @@ void bench_uvc(const BenchConfig &cfg)
             j, prove_stats.median, verify_stats.median,
             proofs[j].size_in_bits(), verified ? "PASS" : "FAIL");
 
-        if (cfg.legacy) {
-            fprintf(csv, "%s,%zu,%zu,%zu,%.2f,%.2f,%.2f,%zu,%zu,%zu,%.1f\n",
-                cfg.circuit.c_str(), cfg.n, cfg.B, j,
-                setup_ms, prove_stats.median, verify_stats.median,
-                crs_g1, crs_g2, proof_bytes, peak_mem_mb);
-        } else {
-            const size_t proof_bytes_compressed =
-                32 * proofs[j].G1_size() + 64 * proofs[j].G2_size();
-            fprintf(csv, "uvc_bound,%s,%zu,%zu,%zu,%.2f,%.2f,%.2f,%zu,%zu,%zu,%zu,%zu,%.1f\n",
-                cfg.circuit.c_str(), cfg.n, cfg.B, j,
-                setup_ms, prove_stats.median, verify_stats.median,
-                crs_g1, crs_g2, kp.vk.st_ABC_g1.size(), proof_bytes,
-                proof_bytes_compressed, peak_mem_mb);
-        }
+        const size_t proof_bytes_compressed = 160;
+        fprintf(csv, "uvc_gamma_v1,%s,%zu,%zu,%zu,%.2f,%.2f,%.2f,%zu,%zu,%zu,%zu,%zu,%.1f,%s\n",
+            cfg.circuit.c_str(), cfg.n, cfg.B, j,
+            setup_ms, prove_stats.median, verify_stats.median,
+            crs_g1, crs_g2, kp.vk.st_ABC_g1.size(), proof_bytes,
+            proof_bytes_compressed, peak_mem_mb, cfg.commit.c_str());
     }
 
     fclose(csv);
@@ -400,17 +358,23 @@ void bench_groth16(const BenchConfig &cfg)
 
         /* Verify timing */
         std::vector<double> verify_times;
-        bool verified = false;
+        bool verified = true;
         for (size_t r = 0; r < cfg.reps; ++r)
         {
             bench::BenchTimer t;
             t.start();
-            verified = r1cs_gg_ppzksnark_verifier_strong_IC<ppT>(
+            const bool rep_verified = r1cs_gg_ppzksnark_verifier_strong_IC<ppT>(
                 kp.vk, assign.first, proof);
+            verified = verified && rep_verified;
             t.stop();
             verify_times.push_back(t.elapsed_ms());
         }
         auto verify_stats = bench::compute_stats(verify_times);
+        if (!verified) {
+            fprintf(stderr, "Groth16 verification failed at step %zu.\n", j);
+            fclose(csv);
+            exit(1);
+        }
 
         size_t proof_bytes = (proof.size_in_bits() + 7) / 8;
 
@@ -440,6 +404,7 @@ BenchConfig parse_args(int argc, char *argv[])
     cfg.n = 270;
     cfg.B = 16;
     cfg.output_dir = ".";
+    cfg.commit = "unknown";
     cfg.reps = 5;
 
     for (int i = 1; i < argc; ++i)
@@ -448,7 +413,9 @@ BenchConfig parse_args(int argc, char *argv[])
              strcmp(argv[i], "--n") == 0 ||
              strcmp(argv[i], "--B") == 0 ||
              strcmp(argv[i], "--output-dir") == 0 ||
-             strcmp(argv[i], "--reps") == 0) &&
+             strcmp(argv[i], "--commit") == 0 ||
+             strcmp(argv[i], "--reps") == 0 ||
+             strcmp(argv[i], "--scheme") == 0) &&
             (i + 1 >= argc || strncmp(argv[i + 1], "--", 2) == 0)) {
             fprintf(stderr, "Missing value for option: %s\n", argv[i]);
             exit(1);
@@ -461,10 +428,12 @@ BenchConfig parse_args(int argc, char *argv[])
             cfg.B = (size_t)atol(argv[++i]);
         else if (strcmp(argv[i], "--output-dir") == 0 && i + 1 < argc)
             cfg.output_dir = argv[++i];
+        else if (strcmp(argv[i], "--commit") == 0 && i + 1 < argc)
+            cfg.commit = argv[++i];
         else if (strcmp(argv[i], "--reps") == 0 && i + 1 < argc)
             cfg.reps = (size_t)atol(argv[++i]);
-        else if (strcmp(argv[i], "--legacy") == 0)
-            cfg.legacy = true;
+        else if (strcmp(argv[i], "--scheme") == 0 && i + 1 < argc)
+            cfg.scheme = argv[++i];
         else if (strcmp(argv[i], "--verify-measured-only") == 0)
             cfg.verify_measured_only = true;
         else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
@@ -475,8 +444,9 @@ BenchConfig parse_args(int argc, char *argv[])
             printf("                                    For sensor_fusion: --n is number of sensors K (constraints = K+1)\n");
             printf("  --B {bound}                       Max compositions (default: 16)\n");
             printf("  --output-dir {path}               CSV output directory (default: .)\n");
+            printf("  --commit {hash}                   Build commit (default: unknown)\n");
             printf("  --reps {count}                    Timing repetitions (default: 5)\n");
-            printf("  --legacy                           Use pre-fix UVC and write uvc_results.csv\n");
+            printf("  --scheme {uvc|groth16|both}         Scheme(s) to benchmark (default: both)\n");
             printf("  --verify-measured-only             Pre-check only measured UVC proof steps\n");
             exit(0);
         }
@@ -486,9 +456,13 @@ BenchConfig parse_args(int argc, char *argv[])
         }
     }
 
-    /* Normalize legacy name */
+    /* Normalize circuit alias */
     if (cfg.circuit == "matmul")
         cfg.circuit = "hadamard";
+    if (cfg.scheme != "uvc" && cfg.scheme != "groth16" && cfg.scheme != "both") {
+        fprintf(stderr, "Invalid --scheme value: %s\n", cfg.scheme.c_str());
+        exit(1);
+    }
 
     return cfg;
 }
@@ -513,8 +487,12 @@ int main(int argc, char *argv[])
         cfg.circuit.c_str(), cfg.n, cfg.B, cfg.reps);
     printf("  Output: %s/\n", cfg.output_dir.c_str());
 
-    bench_uvc(cfg);
-    bench_groth16(cfg);
+    if (cfg.scheme == "uvc" || cfg.scheme == "both") {
+        bench_uvc(cfg);
+    }
+    if (cfg.scheme == "groth16" || cfg.scheme == "both") {
+        bench_groth16(cfg);
+    }
 
     printf("\n================================================================\n");
     printf("All benchmarks complete.\n");

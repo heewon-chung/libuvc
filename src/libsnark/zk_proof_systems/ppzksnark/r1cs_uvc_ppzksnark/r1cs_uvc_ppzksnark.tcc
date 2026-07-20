@@ -32,6 +32,7 @@ KEY DESIGN DECISIONS:
 #include <cassert>
 #include <functional>
 #include <iostream>
+#include <stdexcept>
 
 #include <libff/algebra/scalar_multiplication/multiexp.hpp>
 #include <libff/common/profiling.hpp>
@@ -210,8 +211,7 @@ build_composed_assignment(
 template <typename ppT>
 r1cs_uvc_ppzksnark_keypair<ppT> r1cs_uvc_ppzksnark_generator(
     const state_transition_circuit<libff::Fr<ppT> > &st_circuit,
-    size_t B,
-    bool bind_state)
+    size_t B)
 {
     typedef libff::Fr<ppT> FieldT;
     libff::enter_block("Call to r1cs_uvc_ppzksnark_generator");
@@ -234,10 +234,8 @@ r1cs_uvc_ppzksnark_keypair<ppT> r1cs_uvc_ppzksnark_generator(
     const FieldT beta = FieldT::random_element();
     const FieldT gamma = FieldT::random_element();
     const FieldT delta = FieldT::random_element();
-    const FieldT eta = bind_state ? FieldT::random_element() : FieldT::zero();
     const FieldT gamma_inverse = gamma.inverse();
     const FieldT delta_inverse = delta.inverse();
-    const FieldT eta_inverse = bind_state ? eta.inverse() : FieldT::zero();
 
     /* Single QAP from C_B */
     qap_instance_evaluation<FieldT> qap_B = r1cs_to_qap_instance_map_with_evaluation(cs_B, t);
@@ -282,10 +280,6 @@ r1cs_uvc_ppzksnark_keypair<ppT> r1cs_uvc_ppzksnark_generator(
     libff::G2<ppT> beta_g2 = beta * g2_gen;
     libff::G2<ppT> delta_g2 = delta * g2_gen;
     libff::G2<ppT> gamma_g2 = gamma * g2_gen;
-    libff::G2<ppT> eta_g2 = libff::G2<ppT>::zero();
-    if (bind_state) {
-        eta_g2 = eta * g2_gen;
-    }
 
     /* ===== Full A query from C_B: [u_i(x)]_1 for ALL wires ===== */
     libff::enter_block("Encode full A query from C_B");
@@ -312,12 +306,10 @@ r1cs_uvc_ppzksnark_keypair<ppT> r1cs_uvc_ppzksnark_generator(
 #endif
     libff::leave_block("Encode H query from C_B domain");
 
-    const std::vector<size_t> state_output_indices =
-        bind_state ? uvc_state_output_indices(st_circuit, B) : std::vector<size_t>();
+    const std::vector<size_t> state_output_indices = uvc_state_output_indices(st_circuit, B);
     /* Precomputed once: per-wire class table (uvc_wire_class_of would rebuild
        the I^st index vector on every call inside the loops below). */
-    const std::vector<uvc_wire_class> wire_classes =
-        bind_state ? uvc_wire_classes(st_circuit, B) : std::vector<uvc_wire_class>();
+    const std::vector<uvc_wire_class> wire_classes = uvc_wire_classes(st_circuit, B);
     /* ===== L query from C_B: [(beta*u_i + alpha*v_i + w_i)/delta]_1 for witness wires ===== */
     libff::enter_block("Encode L query from C_B");
     const size_t num_inputs_B = qap_B.num_inputs();
@@ -325,7 +317,7 @@ r1cs_uvc_ppzksnark_keypair<ppT> r1cs_uvc_ppzksnark_generator(
     std::vector<FieldT> Lt;
     Lt.reserve(qap_B.num_variables() - num_inputs_B);
     for (size_t i = Lt_offset; i < qap_B.num_variables() + 1; ++i) {
-        Lt.emplace_back(bind_state && wire_classes[i] == uvc_wire_class::st
+        Lt.emplace_back(wire_classes[i] == uvc_wire_class::st
                         ? FieldT::zero()
                         : (beta * At[i] + alpha * Bt[i] + Ct[i]) * delta_inverse);
     }
@@ -334,21 +326,19 @@ r1cs_uvc_ppzksnark_keypair<ppT> r1cs_uvc_ppzksnark_generator(
     libff::batch_to_special<libff::G1<ppT> >(L_query);
 #endif
     libff::leave_block("Encode L query from C_B");
-    libff::G1_vector<ppT> st_query;
-    if (bind_state) {
-        /* ===== State-output query: [(beta*u_i + alpha*v_i + w_i)/eta]_1 for I^st ===== */
-        libff::enter_block("Encode state-output query from C_B");
-        std::vector<FieldT> st_scalars;
-        st_scalars.reserve(state_output_indices.size());
-        for (const size_t i : state_output_indices) {
-            st_scalars.emplace_back((beta * At[i] + alpha * Bt[i] + Ct[i]) * eta_inverse);
-        }
-        st_query = batch_exp(g1_scalar_size, g1_window_size, g1_table, st_scalars);
-#ifdef USE_MIXED_ADDITION
-        libff::batch_to_special<libff::G1<ppT> >(st_query);
-#endif
-        libff::leave_block("Encode state-output query from C_B");
+    /* ===== State-output query: [(beta*u_i + alpha*v_i + w_i)/gamma]_1 for I^st =====
+       State wires live on the gamma track (never delta): io u st = gamma, wt = delta. */
+    libff::enter_block("Encode state-output query from C_B");
+    std::vector<FieldT> st_scalars;
+    st_scalars.reserve(state_output_indices.size());
+    for (const size_t i : state_output_indices) {
+        st_scalars.emplace_back((beta * At[i] + alpha * Bt[i] + Ct[i]) * gamma_inverse);
     }
+    libff::G1_vector<ppT> st_query = batch_exp(g1_scalar_size, g1_window_size, g1_table, st_scalars);
+#ifdef USE_MIXED_ADDITION
+    libff::batch_to_special<libff::G1<ppT> >(st_query);
+#endif
+    libff::leave_block("Encode state-output query from C_B");
 
     /* ===== gamma_ABC: [(beta*u_i + alpha*v_i + w_i)/gamma]_1 for public wires ===== */
     libff::enter_block("Encode gamma_ABC for verification");
@@ -362,7 +352,10 @@ r1cs_uvc_ppzksnark_keypair<ppT> r1cs_uvc_ppzksnark_generator(
     libff::G1_vector<ppT> gamma_ABC_g1_vals = batch_exp(g1_scalar_size, g1_window_size, g1_table, gamma_ABC_vals);
     accumulation_vector<libff::G1<ppT> > gamma_ABC_g1(std::move(gamma_ABC_g1_0), std::move(gamma_ABC_g1_vals));
     libff::leave_block("Encode gamma_ABC for verification");
-    if (bind_state) {
+    /* ===== Always-on partition invariant (AC1): io u st = gamma, wt = delta =====
+       Enforced in release builds: a violated partition breaks knowledge
+       soundness (public/witness collision), so Setup fails hard. */
+    {
         bool tracks_are_disjoint =
             uvc_check_track_disjointness(st_circuit, B, qap_B.num_variables()) &&
             state_output_indices.size() == B * ss &&
@@ -378,7 +371,11 @@ r1cs_uvc_ppzksnark_keypair<ppT> r1cs_uvc_ppzksnark_generator(
                 tracks_are_disjoint = (i > num_inputs_B);
             }
         }
-        assert(tracks_are_disjoint);
+        if (!tracks_are_disjoint) {
+            throw std::logic_error(
+                "uvc: wire-track partition invariant violated "
+                "(io u st must be on gamma, wt on delta, tracks disjoint)");
+        }
     }
 
     /* ===== Per-step incremental data for steps 2..B ===== */
@@ -400,8 +397,8 @@ r1cs_uvc_ppzksnark_keypair<ppT> r1cs_uvc_ppzksnark_generator(
         sd.new_wire_start = new_start_qap;
         sd.new_wire_count = new_count;
         sd.new_io_count = 0;       /* all new wires are witness (public inputs are fixed) */
-        sd.new_st_count = bind_state ? ss : 0;
-        sd.new_wt_count = bind_state ? new_count - ss : new_count;
+        sd.new_st_count = ss;
+        sd.new_wt_count = new_count - ss;
 
         /* Extract A, B, L queries for new wires from the FULL C_B queries */
         std::vector<FieldT> new_At(At.begin() + new_start_qap, At.begin() + new_start_qap + new_count);
@@ -411,7 +408,7 @@ r1cs_uvc_ppzksnark_keypair<ppT> r1cs_uvc_ppzksnark_generator(
         new_Lt.reserve(new_count);
         for (size_t i = 0; i < new_count; ++i) {
             const size_t qi = new_start_qap + i;
-            new_Lt.emplace_back(bind_state && wire_classes[qi] == uvc_wire_class::st
+            new_Lt.emplace_back(wire_classes[qi] == uvc_wire_class::st
                                 ? FieldT::zero()
                                 : (beta * At[qi] + alpha * Bt[qi] + Ct[qi]) * delta_inverse);
         }
@@ -428,7 +425,7 @@ r1cs_uvc_ppzksnark_keypair<ppT> r1cs_uvc_ppzksnark_generator(
 #ifdef USE_MIXED_ADDITION
         libff::batch_to_special<libff::G1<ppT> >(sd.L_query_delta);
 #endif
-        if (bind_state) {
+        {
             const size_t st_query_offset = (step - 1) * ss;
             sd.st_query_delta.insert(sd.st_query_delta.end(),
                                      st_query.begin() + st_query_offset,
@@ -455,10 +452,7 @@ r1cs_uvc_ppzksnark_keypair<ppT> r1cs_uvc_ppzksnark_generator(
     pk.base_pk = std::move(base_pk);
     pk.step_data = std::move(step_data);
     pk.H_query_full = pk.base_pk.H_query; /* alias — same H query */
-    pk.bind_state = bind_state;
-    if (bind_state) {
-        pk.st_query = st_query;
-    }
+    pk.st_query = st_query;
     pk.max_compositions = B;
     pk.st_circuit = st_circuit;
 
@@ -466,20 +460,12 @@ r1cs_uvc_ppzksnark_keypair<ppT> r1cs_uvc_ppzksnark_generator(
     vk.alpha_g1_beta_g2 = alpha_g1_beta_g2;
     vk.gamma_g2 = gamma_g2;
     vk.delta_g2 = delta_g2;
-    vk.bind_state = bind_state;
-    if (bind_state) {
-        vk.eta_g2 = eta_g2;
-    }
     vk.gamma_ABC_g1 = std::move(gamma_ABC_g1);
-    if (bind_state) {
-        vk.st_ABC_g1 = st_query;
-    }
+    vk.st_ABC_g1 = st_query;
     vk.max_compositions = B;
-    if (bind_state) {
-        vk.state_size = ss;
-        vk.transition_size = ts;
-        vk.new_per_step = new_per_step;
-    }
+    vk.state_size = ss;
+    vk.transition_size = ts;
+    vk.new_per_step = new_per_step;
 
     pk.print_size();
     vk.print_size();
@@ -491,16 +477,40 @@ r1cs_uvc_ppzksnark_keypair<ppT> r1cs_uvc_ppzksnark_generator(
 
 
 /**
+ * Internal per-step fold view (single fold path for all steps, AC3).
+ *
+ * Holds iterator ranges over the CRS elements consumed by step j's fold
+ * together with the full_assignment offsets of the matching scalar spans.
+ * Step 1 VIEWS the base C_B queries over {0} u I_1 (no CRS element is
+ * duplicated for the base case); steps j>1 view step_data[step-2].
+ * Selecting the view is the only step-dependent code; the four fold
+ * multi-exponentiations below execute one shared path.
+ */
+template<typename ppT>
+struct uvc_step_fold_view {
+    typename libff::G1_vector<ppT>::const_iterator A_begin, A_end;
+    const knowledge_commitment_vector<libff::G2<ppT>, libff::G1<ppT> > *B_vec;
+    size_t B_lo, B_hi;
+    typename libff::G1_vector<ppT>::const_iterator L_begin, L_end;
+    typename libff::G1_vector<ppT>::const_iterator st_begin, st_end;
+    size_t AB_scalar_offset;  /* full_assignment index of the A/B span */
+    size_t L_scalar_offset;   /* full_assignment index of the L span */
+    size_t st_scalar_offset;  /* full_assignment index of the st span */
+};
+
+/**
  * UVC.Prove
  *
- * For step j=1: generates a fresh proof using C_B's QAP.
- * For step j>1: incrementally updates A, B, C from the previous proof.
+ * Every step is the same fold. For j=1 the previous accumulator is the
+ * base case (alpha, beta, 0, 0) with I_0 = {} and h_0 = 0, and the fold
+ * ranges over {0} u I_1 (wire 0 contributes with a_0 = 1). For j>1 the
+ * previous accumulator is prev_proof and the fold ranges over I_j \ I_{j-1}.
  *
  * Both cases compute h_j by padding the I_j assignment with zeros
  * to fill C_B's full wire set, then using r1cs_to_qap_witness_map
- * on C_B. This works because for well-structured circuits (pure
- * multiplicative gates), future constraints evaluate to 0*0=0
- * with zero-padded new wires.
+ * on C_B. Zero-extension admissibility (the padded assignment must
+ * satisfy C_B) is enforced by a runtime preflight below; violating
+ * circuits are rejected with std::invalid_argument in release builds.
  */
 template <typename ppT>
 r1cs_uvc_ppzksnark_proof<ppT> r1cs_uvc_ppzksnark_prover(
@@ -549,6 +559,18 @@ r1cs_uvc_ppzksnark_proof<ppT> r1cs_uvc_ppzksnark_prover(
 
     libff::leave_block("Pad assignment to C_B", false);
 
+    /* ===== Zero-extension admissibility preflight (AC9) =====
+       Runtime-enforced (effective in release builds, unlike the debug-only
+       assert inside r1cs_to_qap_witness_map): the zero-padded C_j
+       assignment must satisfy C_B, otherwise h_j computed on C_B's domain
+       is invalid for this circuit. */
+    if (!cs_B.is_satisfied(primary_input, padded_auxiliary)) {
+        libff::leave_block("Call to r1cs_uvc_ppzksnark_prover");
+        throw std::invalid_argument(
+            "uvc: circuit violates zero-extension admissibility "
+            "(zero-padded C_j assignment does not satisfy C_B)");
+    }
+
     /* ===== Compute h_j using C_B's QAP ===== */
     libff::enter_block("Compute h_j via C_B QAP witness map", false);
 
@@ -569,153 +591,139 @@ r1cs_uvc_ppzksnark_proof<ppT> r1cs_uvc_ppzksnark_prover(
     full_assignment.emplace_back(FieldT::one()); /* wire 0 = constant 1 */
     full_assignment.insert(full_assignment.end(), primary_input.begin(), primary_input.end());
     full_assignment.insert(full_assignment.end(), auxiliary_input.begin(), auxiliary_input.end());
-    /* State binding is derived from the CRS flag rather than a prover argument:
-       the generator-level flag avoids contradictory prover configuration. */
+    /* ===== Uniform fold: every step updates the previous accumulator (AC3) =====
+       Base case j=1: (A_0, B_0, C_0, D_0) = (alpha, beta, 0, 0), I_0 = {},
+       h_0 = 0. The fold ranges over {0} u I_1 as a VIEW of C_B's base
+       queries (wire 0 contributes with a_0 = 1; no CRS element is
+       duplicated for step 1). Step j>1 folds over I_j \ I_{j-1} using
+       step_data[step-2] and the previous proof. */
+    libff::enter_block("UVC uniform fold");
 
+    libff::G1<ppT> prev_A;
+    libff::G2<ppT> prev_B;
+    libff::G1<ppT> prev_C;
+    libff::G1<ppT> prev_D;
+    const std::vector<FieldT> empty_h;
+    const std::vector<FieldT> *prev_h = &empty_h;
 
+    /* Step-dependent code selects only the previous accumulator and the
+       fold view; the multi-exponentiations below are one shared path. */
+    uvc_step_fold_view<ppT> view;
     if (step == 1)
     {
-        /* ===== Base case: compute proof from scratch using C_B's queries ===== */
-        libff::enter_block("UVC base case: fresh proof for step 1");
+        prev_A = pk.base_pk.alpha_g1;
+        prev_B = pk.base_pk.beta_g2;
+        prev_C = libff::G1<ppT>::zero();
+        prev_D = libff::G1<ppT>::zero();
 
-        /* A = alpha + sum_{i in I_1} a_i * [u_i(x)]_1 */
-        libff::G1<ppT> g1_A = pk.base_pk.alpha_g1 +
-            libff::multi_exp_with_mixed_addition<libff::G1<ppT>, FieldT,
-                                                  libff::multi_exp_method_BDLO12>(
-                pk.base_pk.A_query.begin(),
-                pk.base_pk.A_query.begin() + total_vars_j + 1,
-                full_assignment.begin(),
-                full_assignment.begin() + total_vars_j + 1,
-                chunks);
+        /* A/B span: {0} u I_1 with a_0 = 1 (length 1 + |I_1|). */
+        assert(full_assignment.size() == 1 + total_vars_j);
+        view.A_begin = pk.base_pk.A_query.begin();
+        view.A_end   = pk.base_pk.A_query.begin() + total_vars_j + 1;
+        view.B_vec   = &pk.base_pk.B_query;
+        view.B_lo    = 0;
+        view.B_hi    = total_vars_j + 1;
+        view.AB_scalar_offset = 0;
 
-        /* B = beta + sum_{i in I_1} a_i * [v_i(x)]_2 */
-        knowledge_commitment<libff::G2<ppT>, libff::G1<ppT> > Bt_acc =
-            kc_multi_exp_with_mixed_addition<libff::G2<ppT>, libff::G1<ppT>, FieldT,
-                                              libff::multi_exp_method_BDLO12>(
-                pk.base_pk.B_query, 0, total_vars_j + 1,
-                full_assignment.begin(),
-                full_assignment.begin() + total_vars_j + 1,
-                chunks);
-        libff::G2<ppT> g2_B = pk.base_pk.beta_g2 + Bt_acc.g;
+        /* C (delta track) consumes ONLY I_1^wt (plus the h-block below):
+           the base L query holds the zero element at every state-output
+           position, so s_1 cannot double-count into both C (delta) and
+           D (gamma). */
+        const size_t num_wt_span_1 = total_vars_j - num_inputs_B;
+        assert(pk.base_pk.L_query.size() >= num_wt_span_1);
+        view.L_begin = pk.base_pk.L_query.begin();
+        view.L_end   = pk.base_pk.L_query.begin() + num_wt_span_1;
+        view.L_scalar_offset = num_inputs_B + 1;
 
-        /* C = sum_{i in I_1^wt} a_i * L_query[i'] + h_1 * H_query
-           Witness wires are indices num_inputs_B+1 .. total_vars_j in C_B's numbering.
-           In L_query, these are at positions 0 .. (total_vars_j - num_inputs_B - 1).
-           In full_assignment, witness starts at index num_inputs_B + 1. */
-        size_t num_wt_j = total_vars_j - num_inputs_B;
-        libff::G1<ppT> g1_C = libff::multi_exp_with_mixed_addition<libff::G1<ppT>, FieldT,
-                                                                     libff::multi_exp_method_BDLO12>(
-            pk.base_pk.L_query.begin(),
-            pk.base_pk.L_query.begin() + num_wt_j,
-            full_assignment.begin() + num_inputs_B + 1,
-            full_assignment.begin() + num_inputs_B + 1 + num_wt_j,
-            chunks);
-
-        /* Add h contribution */
-        g1_C = g1_C + libff::multi_exp<libff::G1<ppT>, FieldT, libff::multi_exp_method_BDLO12>(
-            pk.base_pk.H_query.begin(),
-            pk.base_pk.H_query.begin() + h_len,
-            h_coeffs.begin(),
-            h_coeffs.begin() + h_len,
-            chunks);
-        libff::G1<ppT> g1_D = libff::G1<ppT>::zero();
-        if (pk.bind_state) {
-            assert(pk.st_query.size() >= ss);
-            /* D_1 = sum_i s_1[i] * [L_i / eta]_1 for the step-1 state-output slice. */
-            g1_D = libff::multi_exp_with_mixed_addition<libff::G1<ppT>, FieldT,
-                                                         libff::multi_exp_method_BDLO12>(
-                pk.st_query.begin(), pk.st_query.begin() + ss,
-                full_assignment.begin() + ss + ts + 1,
-                full_assignment.begin() + 2 * ss + ts + 1,
-                chunks);
-        }
-
-
-        libff::leave_block("UVC base case: fresh proof for step 1");
-
-        r1cs_uvc_ppzksnark_proof<ppT> proof(
-            std::move(g1_A), std::move(g2_B), std::move(g1_C),
-            step, std::move(h_coeffs));
-        if (pk.bind_state) {
-            proof.bind_state = true;
-            proof.g_D = std::move(g1_D);
-        }
-
-        proof.print_size();
-        libff::leave_block("Call to r1cs_uvc_ppzksnark_prover");
-        return proof;
+        /* D (gamma track) consumes ONLY I_1^st via the base st_query slice
+           (a view over already-published CRS elements; nothing duplicated). */
+        assert(pk.st_query.size() >= ss);
+        view.st_begin = pk.st_query.begin();
+        view.st_end   = pk.st_query.begin() + ss;
+        view.st_scalar_offset = ss + ts + 1;
     }
+    else
+    {
+        assert(prev_proof != nullptr);
+        assert(prev_proof->step == step - 1);
 
-    /* ===== Incremental case: step > 1 ===== */
-    libff::enter_block("UVC incremental update");
-    assert(prev_proof != nullptr);
-    assert(prev_proof->step == step - 1);
+        const uvc_step_proving_data<ppT> &sd = pk.step_data[step - 2]; /* 0-indexed */
+        prev_A = prev_proof->g_A;
+        prev_B = prev_proof->g_B;
+        prev_C = prev_proof->g_C;
+        prev_D = prev_proof->g_D;
+        prev_h = &prev_proof->cached_h_coefficients;
 
-    const uvc_step_proving_data<ppT> &sd = pk.step_data[step - 2]; /* 0-indexed */
+        view.A_begin = sd.A_query_delta.begin();
+        view.A_end   = sd.A_query_delta.end();
+        view.B_vec   = &sd.B_query_delta;
+        view.B_lo    = 0;
+        view.B_hi    = sd.new_wire_count;
+        view.AB_scalar_offset = sd.new_wire_start;
 
-    /* Extract new wire values from full_assignment */
-    std::vector<FieldT> new_wire_values;
-    new_wire_values.reserve(sd.new_wire_count);
-    for (size_t i = 0; i < sd.new_wire_count; ++i) {
-        new_wire_values.push_back(full_assignment[sd.new_wire_start + i]);
-    }
-    libff::G1<ppT> g1_D = libff::G1<ppT>::zero();
-    if (pk.bind_state) {
-        assert(prev_proof->bind_state);
+        /* C (delta track): state-output positions in L_query_delta hold the
+           zero element, so only I_j^wt contributes. */
+        view.L_begin = sd.L_query_delta.begin();
+        view.L_end   = sd.L_query_delta.end();
+        view.L_scalar_offset = sd.new_wire_start;
+
+        /* D_j = D_{j-1} + sum_{new st} a_i * [L_i/gamma]_1.
+           new_wire_start + ts = (step-1)*new_per_step + ss + ts + 1,
+           so that offset is exactly step j's state-output slice. */
         assert(sd.st_query_delta.size() == ss);
-        /* new_wire_start + ts = (step-1)*new_per_step + ss + ts + 1,
-           so new_wire_values[ts..ts+ss-1] is exactly step j's state-output slice. */
         assert(sd.new_wire_start + ts == (step - 1) * new_per_step + ss + ts + 1);
-        g1_D = prev_proof->g_D + libff::multi_exp_with_mixed_addition<libff::G1<ppT>, FieldT,
-                                                                        libff::multi_exp_method_BDLO12>(
-            sd.st_query_delta.begin(), sd.st_query_delta.end(),
-            new_wire_values.begin() + ts, new_wire_values.begin() + ts + ss,
-            chunks);
+        view.st_begin = sd.st_query_delta.begin();
+        view.st_end   = sd.st_query_delta.end();
+        view.st_scalar_offset = sd.new_wire_start + ts;
     }
 
+    /* ===== One fold kernel for every step j = 1..B ===== */
+    const size_t AB_len = static_cast<size_t>(view.A_end - view.A_begin);
+    const size_t L_len = static_cast<size_t>(view.L_end - view.L_begin);
+    const size_t st_len = static_cast<size_t>(view.st_end - view.st_begin);
+    assert(view.B_hi - view.B_lo == AB_len);
+    assert(st_len == ss);
+    assert(view.AB_scalar_offset + AB_len <= full_assignment.size());
+    assert(view.L_scalar_offset + L_len <= full_assignment.size());
+    assert(view.st_scalar_offset + st_len <= full_assignment.size());
 
-    /* A_j = A_{j-1} + sum_{new wires} a_i * [u_i(x)]_1 */
-    libff::enter_block("Incremental A update", false);
-    libff::G1<ppT> delta_A = libff::multi_exp_with_mixed_addition<libff::G1<ppT>,
-                                                                   FieldT,
+    libff::G1<ppT> delta_A = libff::multi_exp_with_mixed_addition<libff::G1<ppT>, FieldT,
                                                                    libff::multi_exp_method_BDLO12>(
-        sd.A_query_delta.begin(), sd.A_query_delta.end(),
-        new_wire_values.begin(), new_wire_values.end(),
+        view.A_begin, view.A_end,
+        full_assignment.begin() + view.AB_scalar_offset,
+        full_assignment.begin() + view.AB_scalar_offset + AB_len,
         chunks);
-    libff::G1<ppT> g1_A = prev_proof->g_A + delta_A;
-    libff::leave_block("Incremental A update", false);
 
-    /* B_j = B_{j-1} + sum_{new wires} a_i * [v_i(x)]_2 */
-    libff::enter_block("Incremental B update", false);
-    knowledge_commitment<libff::G2<ppT>, libff::G1<ppT> > delta_Bt =
+    knowledge_commitment<libff::G2<ppT>, libff::G1<ppT> > delta_B =
         kc_multi_exp_with_mixed_addition<libff::G2<ppT>, libff::G1<ppT>, FieldT,
                                           libff::multi_exp_method_BDLO12>(
-            sd.B_query_delta, 0, sd.new_wire_count,
-            new_wire_values.begin(), new_wire_values.end(),
+            *view.B_vec, view.B_lo, view.B_hi,
+            full_assignment.begin() + view.AB_scalar_offset,
+            full_assignment.begin() + view.AB_scalar_offset + AB_len,
             chunks);
-    libff::G2<ppT> g2_B = prev_proof->g_B + delta_Bt.g;
-    libff::leave_block("Incremental B update", false);
 
-    /* C_j = C_{j-1} + sum_{new witness wires} a_i * L_delta[i]
-                      + (h_j - h_{j-1}) * H_query */
-    libff::enter_block("Incremental C update", false);
-
-    /* L contribution from new witness wires */
-    libff::G1<ppT> delta_L = libff::multi_exp_with_mixed_addition<libff::G1<ppT>,
-                                                                   FieldT,
+    libff::G1<ppT> delta_L = libff::multi_exp_with_mixed_addition<libff::G1<ppT>, FieldT,
                                                                    libff::multi_exp_method_BDLO12>(
-        sd.L_query_delta.begin(), sd.L_query_delta.end(),
-        new_wire_values.begin(), new_wire_values.end(),
+        view.L_begin, view.L_end,
+        full_assignment.begin() + view.L_scalar_offset,
+        full_assignment.begin() + view.L_scalar_offset + L_len,
         chunks);
 
-    /* H contribution: (h_j - h_{j-1}) coefficients */
-    size_t max_h_len = std::max(h_coeffs.size(), prev_proof->cached_h_coefficients.size());
+    libff::G1<ppT> delta_st = libff::multi_exp_with_mixed_addition<libff::G1<ppT>, FieldT,
+                                                                    libff::multi_exp_method_BDLO12>(
+        view.st_begin, view.st_end,
+        full_assignment.begin() + view.st_scalar_offset,
+        full_assignment.begin() + view.st_scalar_offset + st_len,
+        chunks);
+
+    /* Shared h contribution: (h_j - h_{j-1}) coefficients (h_0 = 0). */
+    size_t max_h_len = std::max(h_coeffs.size(), prev_h->size());
     std::vector<FieldT> h_diff(max_h_len, FieldT::zero());
     for (size_t i = 0; i < h_coeffs.size(); ++i) {
         h_diff[i] += h_coeffs[i];
     }
-    for (size_t i = 0; i < prev_proof->cached_h_coefficients.size(); ++i) {
-        h_diff[i] -= prev_proof->cached_h_coefficients[i];
+    for (size_t i = 0; i < prev_h->size(); ++i) {
+        h_diff[i] -= (*prev_h)[i];
     }
 
     /* Trim trailing zeros */
@@ -734,19 +742,16 @@ r1cs_uvc_ppzksnark_proof<ppT> r1cs_uvc_ppzksnark_prover(
             chunks);
     }
 
-    libff::G1<ppT> g1_C = prev_proof->g_C + delta_L + delta_H;
+    libff::G1<ppT> g1_A = prev_A + delta_A;
+    libff::G2<ppT> g2_B = prev_B + delta_B.g;
+    libff::G1<ppT> g1_C = prev_C + delta_L + delta_H;
+    libff::G1<ppT> g1_D = prev_D + delta_st;
 
-    libff::leave_block("Incremental C update", false);
-
-    libff::leave_block("UVC incremental update");
+    libff::leave_block("UVC uniform fold");
 
     r1cs_uvc_ppzksnark_proof<ppT> proof(
-        std::move(g1_A), std::move(g2_B), std::move(g1_C),
+        std::move(g1_A), std::move(g2_B), std::move(g1_C), std::move(g1_D),
         step, std::move(h_coeffs));
-    if (pk.bind_state) {
-        proof.bind_state = true;
-        proof.g_D = std::move(g1_D);
-    }
 
     proof.print_size();
     libff::leave_block("Call to r1cs_uvc_ppzksnark_prover");
@@ -755,56 +760,19 @@ r1cs_uvc_ppzksnark_proof<ppT> r1cs_uvc_ppzksnark_prover(
 
 
 /**
- * UVC.Verify
+ * UVC.Verify (single verifier; every proof is state-bound)
  *
- * Verifies a proof at step j using the VC verification equation:
- *   e(A, B) = e(alpha, beta) * e(acc, gamma) * e(C, delta)
+ * Verifies a proof at step j against the caller-held trusted previous
+ * state commitment D_prev:
+ *   genesis guard:   step == 1 requires D_prev == 0 (checked first,
+ *                    before the increment MSM)
+ *   increment check: [D_j]_1 - [D_{j-1}]_1 = sum_i s_j[i] * [L_i/gamma]_1
+ *   main equation:   e(A, B) = e(alpha, beta) * e(Q_j + D_j, gamma) * e(C, delta)
+ * with Q_j accumulated from the single gamma_ABC that encodes s_0 and t_1
+ * (fixed public inputs) and e(alpha, beta) precomputed in the VK.
  *
- * Uses a single gamma_ABC that encodes s_0 and t_1 (fixed public inputs).
+ * Online cost: exactly 3 pairings + O(|s_j|) increment MSM.
  */
-template <typename ppT>
-bool r1cs_uvc_ppzksnark_verifier(
-    const r1cs_uvc_ppzksnark_verification_key<ppT> &vk,
-    size_t step,
-    const r1cs_uvc_ppzksnark_primary_input<ppT> &primary_input,
-    const r1cs_uvc_ppzksnark_proof<ppT> &proof)
-{
-    libff::enter_block("Call to r1cs_uvc_ppzksnark_verifier");
-    if (vk.bind_state || proof.bind_state)
-    {
-        if (!libff::inhibit_profiling_info) {
-            libff::print_indent(); printf("state-bound key/proof requires the state-bound verifier overload.\n");
-        }
-        libff::leave_block("Call to r1cs_uvc_ppzksnark_verifier");
-        return false;
-    }
-    if (proof.step != step)
-    {
-        if (!libff::inhibit_profiling_info) {
-            libff::print_indent(); printf("Proof step does not match the verification step.\n");
-        }
-        libff::leave_block("Call to r1cs_uvc_ppzksnark_verifier");
-        return false;
-    }
-    assert(step >= 1 && step <= vk.max_compositions);
-
-    /* Build a VC verification key using the single gamma_ABC */
-    r1cs_vc_ppzksnark_verification_key<ppT> vc_vk(
-        vk.alpha_g1_beta_g2, vk.gamma_g2, vk.delta_g2, vk.gamma_ABC_g1);
-
-    /* Build a VC proof from the UVC proof */
-    r1cs_vc_ppzksnark_proof<ppT> vc_proof;
-    vc_proof.g_A = proof.g_A;
-    vc_proof.g_B = proof.g_B;
-    vc_proof.g_C = proof.g_C;
-
-    bool result = r1cs_vc_ppzksnark_verifier_weak_IC<ppT>(vc_vk, primary_input, vc_proof);
-
-    libff::print_indent(); printf("* UVC Verify step %zu: %s\n", step, result ? "PASS" : "FAIL");
-    libff::leave_block("Call to r1cs_uvc_ppzksnark_verifier");
-
-    return result;
-}
 template <typename ppT>
 bool r1cs_uvc_ppzksnark_verifier(
     const r1cs_uvc_ppzksnark_verification_key<ppT> &vk,
@@ -814,14 +782,17 @@ bool r1cs_uvc_ppzksnark_verifier(
     const r1cs_uvc_ppzksnark_proof<ppT> &proof,
     const libff::G1<ppT> &D_prev)
 {
-    libff::enter_block("Call to r1cs_uvc_ppzksnark_state_bound_verifier");
+    libff::enter_block("Call to r1cs_uvc_ppzksnark_verifier");
 
-    if (!vk.bind_state || !proof.bind_state)
+    /* Genesis guard (AC4): the protocol precondition D_0 = 0 is enforced
+       inside Verify, before the increment MSM — caller ownership of the
+       authentic D_prev does not relax the verifier's own check. */
+    if (step == 1 && !D_prev.is_zero())
     {
         if (!libff::inhibit_profiling_info) {
-            libff::print_indent(); printf("State-bound verification requires a state-bound key and proof.\n");
+            libff::print_indent(); printf("Genesis guard: step 1 requires a zero previous commitment.\n");
         }
-        libff::leave_block("Call to r1cs_uvc_ppzksnark_state_bound_verifier");
+        libff::leave_block("Call to r1cs_uvc_ppzksnark_verifier");
         return false;
     }
 
@@ -830,16 +801,15 @@ bool r1cs_uvc_ppzksnark_verifier(
         if (!libff::inhibit_profiling_info) {
             libff::print_indent(); printf("Proof step does not match a valid verification step.\n");
         }
-        libff::leave_block("Call to r1cs_uvc_ppzksnark_state_bound_verifier");
+        libff::leave_block("Call to r1cs_uvc_ppzksnark_verifier");
         return false;
     }
-
     if (primary_input.size() != vk.state_size + vk.transition_size)
     {
         if (!libff::inhibit_profiling_info) {
             libff::print_indent(); printf("Primary input has incorrect size.\n");
         }
-        libff::leave_block("Call to r1cs_uvc_ppzksnark_state_bound_verifier");
+        libff::leave_block("Call to r1cs_uvc_ppzksnark_verifier");
         return false;
     }
     if (reported_s_j.size() != vk.state_size)
@@ -847,7 +817,7 @@ bool r1cs_uvc_ppzksnark_verifier(
         if (!libff::inhibit_profiling_info) {
             libff::print_indent(); printf("Reported state has incorrect size.\n");
         }
-        libff::leave_block("Call to r1cs_uvc_ppzksnark_state_bound_verifier");
+        libff::leave_block("Call to r1cs_uvc_ppzksnark_verifier");
         return false;
     }
 
@@ -856,7 +826,7 @@ bool r1cs_uvc_ppzksnark_verifier(
         if (!libff::inhibit_profiling_info) {
             libff::print_indent(); printf("At least one proof or previous commitment element does not lie on the curve.\n");
         }
-        libff::leave_block("Call to r1cs_uvc_ppzksnark_state_bound_verifier");
+        libff::leave_block("Call to r1cs_uvc_ppzksnark_verifier");
         return false;
     }
 
@@ -871,7 +841,7 @@ bool r1cs_uvc_ppzksnark_verifier(
         if (!libff::inhibit_profiling_info) {
             libff::print_indent(); printf("State commitment increment check failed.\n");
         }
-        libff::leave_block("Call to r1cs_uvc_ppzksnark_state_bound_verifier");
+        libff::leave_block("Call to r1cs_uvc_ppzksnark_verifier");
         return false;
     }
 
@@ -880,29 +850,30 @@ bool r1cs_uvc_ppzksnark_verifier(
             primary_input.begin(), primary_input.end(), 0);
     const libff::G1<ppT> &acc = accumulated_IC.first;
 
+    /* Q_j + D_j share the gamma generator, so they fold into ONE pairing. */
+    const libff::G1<ppT> acc_plus_D = acc + proof.g_D;
+
     const libff::G1_precomp<ppT> proof_g_A_precomp = ppT::precompute_G1(proof.g_A);
     const libff::G2_precomp<ppT> proof_g_B_precomp = ppT::precompute_G2(proof.g_B);
     const libff::G1_precomp<ppT> proof_g_C_precomp = ppT::precompute_G1(proof.g_C);
-    const libff::G1_precomp<ppT> proof_g_D_precomp = ppT::precompute_G1(proof.g_D);
-    const libff::G1_precomp<ppT> acc_precomp = ppT::precompute_G1(acc);
+    const libff::G1_precomp<ppT> acc_plus_D_precomp = ppT::precompute_G1(acc_plus_D);
     const libff::G2_precomp<ppT> gamma_g2_precomp = ppT::precompute_G2(vk.gamma_g2);
     const libff::G2_precomp<ppT> delta_g2_precomp = ppT::precompute_G2(vk.delta_g2);
-    const libff::G2_precomp<ppT> eta_g2_precomp = ppT::precompute_G2(vk.eta_g2);
 
-    /* AC3: exactly four pairings: A·B, acc·gamma, C·delta, and D·eta. */
+    /* AC5: exactly three online pairings — A·B, (Q_j+D_j)·gamma, C·delta —
+       against the precomputed e(alpha, beta). */
     const libff::Fqk<ppT> QAP1 = ppT::miller_loop(proof_g_A_precomp, proof_g_B_precomp);
     const libff::Fqk<ppT> QAP23 = ppT::double_miller_loop(
-        acc_precomp, gamma_g2_precomp, proof_g_C_precomp, delta_g2_precomp);
-    const libff::Fqk<ppT> QAP4 = ppT::miller_loop(proof_g_D_precomp, eta_g2_precomp);
+        acc_plus_D_precomp, gamma_g2_precomp, proof_g_C_precomp, delta_g2_precomp);
     const libff::GT<ppT> QAP = ppT::final_exponentiation(
-        QAP1 * (QAP23 * QAP4).unitary_inverse());
+        QAP1 * QAP23.unitary_inverse());
 
     const bool result = (QAP == vk.alpha_g1_beta_g2);
     if (!result && !libff::inhibit_profiling_info) {
         libff::print_indent(); printf("QAP divisibility check failed.\n");
     }
 
-    libff::leave_block("Call to r1cs_uvc_ppzksnark_state_bound_verifier");
+    libff::leave_block("Call to r1cs_uvc_ppzksnark_verifier");
     return result;
 }
 

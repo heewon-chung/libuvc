@@ -41,11 +41,32 @@ CIRCUIT_ORDER = {
 
 # ── CSV loading ──────────────────────────────────────────────────
 
+CANONICAL_UVC_HEADER = [
+    "scheme", "circuit", "n", "B", "step", "setup_ms", "prove_ms",
+    "verify_ms", "crs_g1_published", "crs_g2", "vk_st_abc_g1",
+    "proof_bytes", "proof_bytes_compressed", "peak_mem_mb", "commit",
+]
+
+
 def read_csv(path):
     if not os.path.exists(path):
         return []
     with open(path) as f:
         return list(csv.DictReader(f))
+
+
+def read_canonical_uvc(path):
+    try:
+        with open(path, newline="") as f:
+            reader = csv.DictReader(f)
+            if reader.fieldnames != CANONICAL_UVC_HEADER:
+                raise ValueError
+            rows = list(reader)
+    except (OSError, ValueError):
+        sys.exit(f"FATAL: {path}: not a canonical uvc_gamma_v1 results file (expected canonical header and scheme)")
+    if any(row.get("scheme") != "uvc_gamma_v1" for row in rows):
+        sys.exit(f"FATAL: {path}: not a canonical uvc_gamma_v1 results file (expected canonical header and scheme)")
+    return rows
 
 
 def normalize_circuit(name):
@@ -54,11 +75,7 @@ def normalize_circuit(name):
 
 def load_data(csv_dir):
     """Load and index benchmark CSVs."""
-    # State-bound results live in uvc_bound_results.csv (scheme column, new
-    # schema); legacy runs keep uvc_results.csv. Prefer bound rows when both
-    # exist so cumulative curves reflect the current scheme.
-    uvc_rows = read_csv(os.path.join(csv_dir, "uvc_results.csv"))
-    uvc_rows += read_csv(os.path.join(csv_dir, "uvc_bound_results.csv"))
+    uvc_rows = read_canonical_uvc(os.path.join(csv_dir, "uvc_results.csv"))
     g16_rows = read_csv(os.path.join(csv_dir, "groth16_results.csv"))
     nova_rows = read_csv(os.path.join(csv_dir, "nova_results.csv"))
 
