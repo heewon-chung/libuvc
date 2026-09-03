@@ -23,6 +23,10 @@ Usage:
 #include <vector>
 #include <cstdlib>
 
+#ifdef MULTICORE
+#include <omp.h>
+#endif
+
 #include <libff/common/profiling.hpp>
 #include <libff/common/utils.hpp>
 #include <libff/algebra/curves/alt_bn128/alt_bn128_pp.hpp>
@@ -36,6 +40,7 @@ Usage:
 #include <libsnark/zk_proof_systems/ppzksnark/r1cs_uvc_ppzksnark/benchmarks/circuits/pagerank_circuit.hpp>
 #include <libsnark/zk_proof_systems/ppzksnark/r1cs_uvc_ppzksnark/benchmarks/circuits/sensor_fusion_circuit.hpp>
 #include <libsnark/zk_proof_systems/ppzksnark/r1cs_uvc_ppzksnark/benchmarks/bench_utils.hpp>
+#include <libsnark/zk_proof_systems/ppzksnark/r1cs_uvc_ppzksnark/benchmarks/groth16_baseline_circuits.hpp>
 
 using namespace libsnark;
 
@@ -54,8 +59,45 @@ struct BenchConfig {
     std::string commit;     /* short git commit hash */
     size_t reps;            /* timing repetitions */
     bool verify_measured_only = false; /* pre-check only measured steps */
-    std::string scheme = "both"; /* "uvc", "groth16", or "both" */
+    std::string scheme = "both"; /* see parse_args for the accepted values */
+    bool self_test = false;      /* run the correctness self-test and exit */
 };
+
+/* ======================================================================== */
+/* groth16_modes_results.csv writer                                          */
+/* ======================================================================== */
+
+/** Append one row to groth16_modes_results.csv, writing the header if absent. */
+void write_groth16_mode_row(
+    const BenchConfig &cfg, const char *mode, size_t step,
+    double setup_ms, const bench::BenchStats &prove_stats,
+    const bench::BenchStats &verify_stats,
+    size_t crs_g1, size_t crs_g2, size_t proof_bytes,
+    size_t num_constraints, size_t num_primary)
+{
+    const std::string path = cfg.output_dir + "/groth16_modes_results.csv";
+    FILE *csv_check = fopen(path.c_str(), "r");
+    const bool write_header = (csv_check == nullptr);
+    if (csv_check) fclose(csv_check);
+
+    FILE *csv = fopen(path.c_str(), "a");
+    if (!csv) { fprintf(stderr, "Cannot open %s\n", path.c_str()); return; }
+    if (write_header) {
+        fprintf(csv, "mode,circuit,n,B,step,setup_ms,prove_ms,prove_ms_mean,"
+                     "prove_ms_stddev,prove_ms_min,prove_ms_max,verify_ms,"
+                     "verify_ms_stddev,crs_g1,crs_g2,proof_bytes,"
+                     "num_constraints,num_primary,commit\n");
+    }
+    fprintf(csv, "%s,%s,%zu,%zu,%zu,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,"
+                 "%zu,%zu,%zu,%zu,%zu,%s\n",
+        mode, cfg.circuit.c_str(), cfg.n, cfg.B, step,
+        setup_ms, prove_stats.median, prove_stats.mean, prove_stats.stddev,
+        prove_stats.min_val, prove_stats.max_val,
+        verify_stats.median, verify_stats.stddev,
+        crs_g1, crs_g2, proof_bytes, num_constraints, num_primary,
+        cfg.commit.c_str());
+    fclose(csv);
+}
 
 /* ======================================================================== */
 /* Circuit and trace factories                                               */
@@ -275,7 +317,7 @@ void bench_uvc(const BenchConfig &cfg)
 /* Groth16 Re-prove Benchmark                                                */
 /* ======================================================================== */
 
-void bench_groth16(const BenchConfig &cfg)
+void bench_groth16_ondemand(const BenchConfig &cfg)
 {
     printf("\n================================================================\n");
     printf("Groth16 Benchmark: circuit=%s, n=%zu, B=%zu\n", cfg.circuit.c_str(), cfg.n, cfg.B);
@@ -324,17 +366,24 @@ void bench_groth16(const BenchConfig &cfg)
             continue;
         }
 
-        /* Build composed circuit C_j */
-        auto cs_j = build_composed_constraint_system(st, j);
-        size_t num_constraints = cs_j.num_constraints();
+        /* Build composed circuit C_j with the reported state s_j public */
+        auto PJ = build_composed_public_states(st, j, ExposeStates::FinalOnly);
+        size_t num_constraints = PJ.cs.num_constraints();
 
         /* Build assignment */
-        auto assign = build_assignment_for_step(st, j, states, transitions, witnesses);
+        auto assign0 = build_assignment_for_step(st, j, states, transitions, witnesses);
+        auto assign = permute_assignment(assign0.first, assign0.second,
+                                         PJ.perm, PJ.num_public);
+
+        if (!PJ.cs.is_satisfied(assign.first, assign.second)) {
+            fprintf(stderr, "ondemand preflight failed at step %zu\n", j);
+            abort();
+        }
 
         /* Setup (1 run — expensive for large j) */
         bench::BenchTimer setup_timer;
         setup_timer.start();
-        auto kp = r1cs_gg_ppzksnark_generator<ppT>(cs_j);
+        auto kp = r1cs_gg_ppzksnark_generator<ppT>(PJ.cs);
         setup_timer.stop();
         double setup_ms = setup_timer.elapsed_ms();
 
@@ -386,10 +435,312 @@ void bench_groth16(const BenchConfig &cfg)
             cfg.circuit.c_str(), cfg.n, j,
             setup_ms, prove_stats.median, verify_stats.median,
             g16_crs_g1, g16_crs_g2, proof_bytes);
+
+        write_groth16_mode_row(cfg, "ondemand", j, setup_ms, prove_stats,
+            verify_stats, g16_crs_g1, g16_crs_g2, proof_bytes,
+            num_constraints, PJ.num_public);
     }
 
     fclose(csv);
     printf("\n  Groth16 results written to %s\n", g16_path.c_str());
+}
+
+
+/* ======================================================================== */
+/* Groth16 fixed-CRS Benchmark (work item B)                                 */
+/* ======================================================================== */
+
+void bench_groth16_fixedcrs(const BenchConfig &cfg)
+{
+    printf("\n================================================================\n");
+    printf("Groth16 fixed-CRS Benchmark: circuit=%s, n=%zu, B=%zu\n",
+        cfg.circuit.c_str(), cfg.n, cfg.B);
+    printf("================================================================\n");
+
+    auto st = create_circuit(cfg.circuit, cfg.n);
+
+    std::vector<std::vector<FieldT> > states, transitions, witnesses;
+    create_trace(cfg.circuit, cfg.n, cfg.B, states, transitions, witnesses);
+
+    /* Composed C_B with every reported state s_1..s_B public */
+    auto PB = build_composed_public_states(st, cfg.B, ExposeStates::All);
+
+    bench::BenchTimer setup_timer;
+    setup_timer.start();
+    auto kp = r1cs_gg_ppzksnark_generator<ppT>(PB.cs);
+    setup_timer.stop();
+    const double setup_ms = setup_timer.elapsed_ms();
+
+    const size_t g16_crs_g1 = kp.pk.G1_size();
+    const size_t g16_crs_g2 = kp.pk.G2_size();
+
+    printf("  [fixedcrs] C_B setup: %.2f ms, %zu constraints\n",
+        setup_ms, PB.cs.num_constraints());
+
+    auto measured = get_measured_steps(cfg.B);
+
+    printf("\n  %-6s  %-12s  %-12s  %-10s\n",
+        "Step", "Prove (ms)", "Verify (ms)", "Verified");
+    printf("  %-6s  %-12s  %-12s  %-10s\n",
+        "------", "------------", "------------", "----------");
+
+    for (size_t j : measured)
+    {
+        auto assign = build_padded_composed_assignment(
+            st, j, cfg.B, PB.perm, PB.num_public, states, transitions, witnesses);
+
+        if (!PB.cs.is_satisfied(assign.first, assign.second)) {
+            fprintf(stderr, "fixedcrs preflight failed at step %zu\n", j);
+            abort();
+        }
+
+        std::vector<double> prove_times;
+        r1cs_gg_ppzksnark_proof<ppT> proof;
+        for (size_t r = 0; r < cfg.reps; ++r)
+        {
+            bench::BenchTimer t;
+            t.start();
+            proof = r1cs_gg_ppzksnark_prover<ppT>(kp.pk, assign.first, assign.second);
+            t.stop();
+            prove_times.push_back(t.elapsed_ms());
+        }
+        auto prove_stats = bench::compute_stats(prove_times);
+
+        std::vector<double> verify_times;
+        bool verified = true;
+        for (size_t r = 0; r < cfg.reps; ++r)
+        {
+            bench::BenchTimer t;
+            t.start();
+            const bool rep_verified = r1cs_gg_ppzksnark_verifier_strong_IC<ppT>(
+                kp.vk, assign.first, proof);
+            t.stop();
+            verified = verified && rep_verified;
+            verify_times.push_back(t.elapsed_ms());
+        }
+        auto verify_stats = bench::compute_stats(verify_times);
+        if (!verified) {
+            fprintf(stderr, "Groth16 fixed-CRS verification failed at step %zu.\n", j);
+            abort();
+        }
+
+        const size_t proof_bytes = (proof.size_in_bits() + 7) / 8;
+
+        printf("  %-6zu  %-12.2f  %-12.2f  %-10s\n",
+            j, prove_stats.median, verify_stats.median, verified ? "PASS" : "FAIL");
+
+        write_groth16_mode_row(cfg, "fixedcrs", j, setup_ms, prove_stats,
+            verify_stats, g16_crs_g1, g16_crs_g2, proof_bytes,
+            PB.cs.num_constraints(), PB.num_public);
+    }
+
+    printf("\n  Groth16 fixed-CRS results written to %s/groth16_modes_results.csv\n",
+        cfg.output_dir.c_str());
+}
+
+
+/* ======================================================================== */
+/* Groth16 single-step chaining Benchmark (work item A)                      */
+/* ======================================================================== */
+
+void bench_groth16_singlestep(const BenchConfig &cfg)
+{
+    printf("\n================================================================\n");
+    printf("Groth16 single-step Benchmark: circuit=%s, n=%zu, B=%zu\n",
+        cfg.circuit.c_str(), cfg.n, cfg.B);
+    printf("================================================================\n");
+
+    auto st = create_circuit(cfg.circuit, cfg.n);
+
+    std::vector<std::vector<FieldT> > states, transitions, witnesses;
+    create_trace(cfg.circuit, cfg.n, cfg.B, states, transitions, witnesses);
+
+    auto cs = make_public_output_circuit(st);
+
+    bench::BenchTimer setup_timer;
+    setup_timer.start();
+    auto kp = r1cs_gg_ppzksnark_generator<ppT>(cs);
+    setup_timer.stop();
+    const double setup_ms = setup_timer.elapsed_ms();
+
+    const size_t g16_crs_g1 = kp.pk.G1_size();
+    const size_t g16_crs_g2 = kp.pk.G2_size();
+
+    printf("  Setup: %.2f ms, %zu constraints, %zu public inputs\n",
+        setup_ms, cs.num_constraints(), cs.num_inputs());
+
+    /* Preflight every step of the chain */
+    for (size_t j = 1; j <= cfg.B; ++j)
+    {
+        auto assign = build_single_step_assignment(st, j, states, transitions, witnesses);
+        if (!cs.is_satisfied(assign.first, assign.second)) {
+            fprintf(stderr, "singlestep preflight failed at step %zu\n", j);
+            abort();
+        }
+    }
+
+    auto measured = get_measured_steps(cfg.B);
+
+    printf("\n  %-6s  %-12s  %-12s  %-10s\n",
+        "Step", "Prove (ms)", "Verify (ms)", "Verified");
+    printf("  %-6s  %-12s  %-12s  %-10s\n",
+        "------", "------------", "------------", "----------");
+
+    for (size_t j : measured)
+    {
+        auto assign = build_single_step_assignment(st, j, states, transitions, witnesses);
+
+        std::vector<double> prove_times;
+        r1cs_gg_ppzksnark_proof<ppT> proof;
+        for (size_t r = 0; r < cfg.reps; ++r)
+        {
+            bench::BenchTimer t;
+            t.start();
+            proof = r1cs_gg_ppzksnark_prover<ppT>(kp.pk, assign.first, assign.second);
+            t.stop();
+            prove_times.push_back(t.elapsed_ms());
+        }
+        auto prove_stats = bench::compute_stats(prove_times);
+
+        std::vector<double> verify_times;
+        bool verified = true;
+        for (size_t r = 0; r < cfg.reps; ++r)
+        {
+            bench::BenchTimer t;
+            t.start();
+            const bool rep_verified = r1cs_gg_ppzksnark_verifier_strong_IC<ppT>(
+                kp.vk, assign.first, proof);
+            t.stop();
+            verified = verified && rep_verified;
+            verify_times.push_back(t.elapsed_ms());
+        }
+        auto verify_stats = bench::compute_stats(verify_times);
+        if (!verified) {
+            fprintf(stderr, "Groth16 single-step verification failed at step %zu.\n", j);
+            abort();
+        }
+
+        const size_t proof_bytes = (proof.size_in_bits() + 7) / 8;
+
+        printf("  %-6zu  %-12.2f  %-12.2f  %-10s\n",
+            j, prove_stats.median, verify_stats.median, verified ? "PASS" : "FAIL");
+
+        write_groth16_mode_row(cfg, "singlestep", j, setup_ms, prove_stats,
+            verify_stats, g16_crs_g1, g16_crs_g2, proof_bytes,
+            cs.num_constraints(), cs.num_inputs());
+    }
+
+    printf("\n  Groth16 single-step results written to %s/groth16_modes_results.csv\n",
+        cfg.output_dir.c_str());
+}
+
+
+/* ======================================================================== */
+/* Self-test (spec §10.1)                                                    */
+/* ======================================================================== */
+
+/**
+ * Correctness self-test of the three Groth16 baseline circuit constructions.
+ * For each circuit type at tiny size, B = 3 and j in {1,2,3}:
+ *   honest assignment satisfies the circuit and verifies;
+ *   a corrupted public state coordinate makes verification fail.
+ * Prints SELF-TEST PASS and returns 0, or the first failing case and returns 1.
+ */
+int run_self_test()
+{
+    struct Case { const char *circuit; size_t n; };
+    const std::vector<Case> cases = {
+        {"mimc", 6}, {"hadamard", 4}, {"scalable", 8},
+        {"pagerank", 4}, {"sensor_fusion", 4}
+    };
+    const size_t B = 3;
+
+    for (const Case &tc : cases)
+    {
+        printf("  [self-test] circuit=%s n=%zu B=%zu\n", tc.circuit, tc.n, B);
+
+        auto st = create_circuit(tc.circuit, tc.n);
+        const size_t ss = st.state_size;
+        const size_t ts = st.transition_size;
+
+        std::vector<std::vector<FieldT> > states, transitions, witnesses;
+        create_trace(tc.circuit, tc.n, B, states, transitions, witnesses);
+
+        /* --- 1. Single-step, s_out public --- */
+        auto cs_ss = make_public_output_circuit(st);
+        auto kp_ss = r1cs_gg_ppzksnark_generator<ppT>(cs_ss);
+        for (size_t j = 1; j <= B; ++j)
+        {
+            auto assign = build_single_step_assignment(st, j, states, transitions, witnesses);
+            if (!cs_ss.is_satisfied(assign.first, assign.second)) {
+                fprintf(stderr, "SELF-TEST FAIL: singlestep is_satisfied, circuit=%s j=%zu\n", tc.circuit, j);
+                return 1;
+            }
+            auto proof = r1cs_gg_ppzksnark_prover<ppT>(kp_ss.pk, assign.first, assign.second);
+            if (!r1cs_gg_ppzksnark_verifier_strong_IC<ppT>(kp_ss.vk, assign.first, proof)) {
+                fprintf(stderr, "SELF-TEST FAIL: singlestep honest verify, circuit=%s j=%zu\n", tc.circuit, j);
+                return 1;
+            }
+            auto bad = assign.first;
+            bad.back() += FieldT::one();
+            if (r1cs_gg_ppzksnark_verifier_strong_IC<ppT>(kp_ss.vk, bad, proof)) {
+                fprintf(stderr, "SELF-TEST FAIL: singlestep corrupted verify accepted, circuit=%s j=%zu\n", tc.circuit, j);
+                return 1;
+            }
+        }
+
+        /* --- 2. On-demand C_j, s_j public --- */
+        for (size_t j = 1; j <= B; ++j)
+        {
+            auto PJ = build_composed_public_states(st, j, ExposeStates::FinalOnly);
+            auto assign0 = build_assignment_for_step(st, j, states, transitions, witnesses);
+            auto assign = permute_assignment(assign0.first, assign0.second,
+                                             PJ.perm, PJ.num_public);
+            if (!PJ.cs.is_satisfied(assign.first, assign.second)) {
+                fprintf(stderr, "SELF-TEST FAIL: ondemand is_satisfied, circuit=%s j=%zu\n", tc.circuit, j);
+                return 1;
+            }
+            auto kp_j = r1cs_gg_ppzksnark_generator<ppT>(PJ.cs);
+            auto proof = r1cs_gg_ppzksnark_prover<ppT>(kp_j.pk, assign.first, assign.second);
+            if (!r1cs_gg_ppzksnark_verifier_strong_IC<ppT>(kp_j.vk, assign.first, proof)) {
+                fprintf(stderr, "SELF-TEST FAIL: ondemand honest verify, circuit=%s j=%zu\n", tc.circuit, j);
+                return 1;
+            }
+            auto bad = assign.first;
+            bad.back() += FieldT::one();
+            if (r1cs_gg_ppzksnark_verifier_strong_IC<ppT>(kp_j.vk, bad, proof)) {
+                fprintf(stderr, "SELF-TEST FAIL: ondemand corrupted verify accepted, circuit=%s j=%zu\n", tc.circuit, j);
+                return 1;
+            }
+        }
+
+        /* --- 3. Fixed-CRS C_B, all states public --- */
+        auto PB = build_composed_public_states(st, B, ExposeStates::All);
+        auto kp_B = r1cs_gg_ppzksnark_generator<ppT>(PB.cs);
+        for (size_t j = 1; j <= B; ++j)
+        {
+            auto assign = build_padded_composed_assignment(
+                st, j, B, PB.perm, PB.num_public, states, transitions, witnesses);
+            if (!PB.cs.is_satisfied(assign.first, assign.second)) {
+                fprintf(stderr, "SELF-TEST FAIL: fixedcrs is_satisfied, circuit=%s j=%zu\n", tc.circuit, j);
+                return 1;
+            }
+            auto proof = r1cs_gg_ppzksnark_prover<ppT>(kp_B.pk, assign.first, assign.second);
+            if (!r1cs_gg_ppzksnark_verifier_strong_IC<ppT>(kp_B.vk, assign.first, proof)) {
+                fprintf(stderr, "SELF-TEST FAIL: fixedcrs honest verify, circuit=%s j=%zu\n", tc.circuit, j);
+                return 1;
+            }
+            auto bad = assign.first;
+            bad[ss + ts + (j - 1) * ss] += FieldT::one();
+            if (r1cs_gg_ppzksnark_verifier_strong_IC<ppT>(kp_B.vk, bad, proof)) {
+                fprintf(stderr, "SELF-TEST FAIL: fixedcrs corrupted verify accepted, circuit=%s j=%zu\n", tc.circuit, j);
+                return 1;
+            }
+        }
+    }
+
+    printf("SELF-TEST PASS\n");
+    return 0;
 }
 
 
@@ -436,6 +787,8 @@ BenchConfig parse_args(int argc, char *argv[])
             cfg.scheme = argv[++i];
         else if (strcmp(argv[i], "--verify-measured-only") == 0)
             cfg.verify_measured_only = true;
+        else if (strcmp(argv[i], "--self-test") == 0)
+            cfg.self_test = true;
         else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
             printf("Usage: %s [options]\n", argv[0]);
             printf("  --circuit {mimc|hadamard|scalable|pagerank|sensor_fusion} Circuit type (default: mimc)\n");
@@ -446,8 +799,10 @@ BenchConfig parse_args(int argc, char *argv[])
             printf("  --output-dir {path}               CSV output directory (default: .)\n");
             printf("  --commit {hash}                   Build commit (default: unknown)\n");
             printf("  --reps {count}                    Timing repetitions (default: 5)\n");
-            printf("  --scheme {uvc|groth16|both}         Scheme(s) to benchmark (default: both)\n");
+            printf("  --scheme {uvc|groth16|groth16-fixedcrs|groth16-singlestep|groth16-all|both|all}\n");
+            printf("                                    Scheme(s) to benchmark (default: both)\n");
             printf("  --verify-measured-only             Pre-check only measured UVC proof steps\n");
+            printf("  --self-test                        Run the baseline-circuit correctness self-test and exit\n");
             exit(0);
         }
         else {
@@ -459,7 +814,9 @@ BenchConfig parse_args(int argc, char *argv[])
     /* Normalize circuit alias */
     if (cfg.circuit == "matmul")
         cfg.circuit = "hadamard";
-    if (cfg.scheme != "uvc" && cfg.scheme != "groth16" && cfg.scheme != "both") {
+    if (cfg.scheme != "uvc" && cfg.scheme != "groth16" &&
+        cfg.scheme != "groth16-fixedcrs" && cfg.scheme != "groth16-singlestep" &&
+        cfg.scheme != "groth16-all" && cfg.scheme != "both" && cfg.scheme != "all") {
         fprintf(stderr, "Invalid --scheme value: %s\n", cfg.scheme.c_str());
         exit(1);
     }
@@ -478,7 +835,17 @@ int main(int argc, char *argv[])
     libff::inhibit_profiling_info = true;
     libff::inhibit_profiling_counters = true;
 
+#ifdef MULTICORE
+    printf("  OpenMP max threads: %d\n", omp_get_max_threads());
+#else
+    printf("  OpenMP max threads: 1 (MULTICORE off)\n");
+#endif
+
     BenchConfig cfg = parse_args(argc, argv);
+
+    if (cfg.self_test) {
+        return run_self_test();
+    }
 
     printf("================================================================\n");
     printf("Comparative Benchmark: UVC vs Groth16\n");
@@ -487,11 +854,20 @@ int main(int argc, char *argv[])
         cfg.circuit.c_str(), cfg.n, cfg.B, cfg.reps);
     printf("  Output: %s/\n", cfg.output_dir.c_str());
 
-    if (cfg.scheme == "uvc" || cfg.scheme == "both") {
+    if (cfg.scheme == "uvc" || cfg.scheme == "both" || cfg.scheme == "all") {
         bench_uvc(cfg);
     }
-    if (cfg.scheme == "groth16" || cfg.scheme == "both") {
-        bench_groth16(cfg);
+    if (cfg.scheme == "groth16" || cfg.scheme == "both" ||
+        cfg.scheme == "groth16-all" || cfg.scheme == "all") {
+        bench_groth16_ondemand(cfg);
+    }
+    if (cfg.scheme == "groth16-fixedcrs" ||
+        cfg.scheme == "groth16-all" || cfg.scheme == "all") {
+        bench_groth16_fixedcrs(cfg);
+    }
+    if (cfg.scheme == "groth16-singlestep" ||
+        cfg.scheme == "groth16-all" || cfg.scheme == "all") {
+        bench_groth16_singlestep(cfg);
     }
 
     printf("\n================================================================\n");

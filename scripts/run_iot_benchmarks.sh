@@ -12,6 +12,7 @@
 #   ./scripts/run_iot_benchmarks.sh --cpp-only   # C++ benchmarks only (UVC + Groth16)
 #   ./scripts/run_iot_benchmarks.sh --nova-only  # Nova benchmarks only (Rust)
 #   ./scripts/run_iot_benchmarks.sh --tables-only # Generate tables from existing CSVs
+#   ./scripts/run_iot_benchmarks.sh --nova-runs N # Nova re-runs per configuration (default 5)
 #
 # Output:
 #   results/YYYY-MM-DD_HHMMSS_TAG/
@@ -34,6 +35,7 @@ TAG="iot"
 REPS=10
 MODE="all"
 QUICK=false
+NOVA_RUNS=5
 
 # IoT sensor fusion configurations: (circuit, K, B)
 # K = number of sensors (constraints = K+1 per step)
@@ -77,6 +79,7 @@ while [[ $# -gt 0 ]]; do
             QUICK=true
             TAG="iot-quick"
             REPS=2
+            NOVA_RUNS=1
             CONFIGS=(
                 "sensor_fusion:4:64"
                 "sensor_fusion:8:64"
@@ -95,8 +98,9 @@ while [[ $# -gt 0 ]]; do
         --nova-only)  MODE="nova"; shift ;;
         --tables-only) MODE="tables"; shift ;;
         --reps)       REPS="$2"; shift 2 ;;
+        --nova-runs)  NOVA_RUNS="$2"; shift 2 ;;
         --help|-h)
-            head -22 "$0" | tail -21
+            head -23 "$0" | tail -22
             exit 0
             ;;
         *)
@@ -161,10 +165,10 @@ if mode == "nova":
     schemes = ["nova"]
 elif mode == "cpp":
     selected_configs = cpp_configs
-    schemes = ["uvc_gamma_v1", "groth16"]
+    schemes = ["uvc_gamma_v1", "groth16", "groth16_fixedcrs", "groth16_singlestep"]
 elif mode == "all":
     selected_configs = cpp_configs
-    schemes = ["uvc_gamma_v1", "groth16", "nova"]
+    schemes = ["uvc_gamma_v1", "groth16", "groth16_fixedcrs", "groth16_singlestep", "nova"]
 else:
     selected_configs = cpp_configs
     schemes = []
@@ -287,6 +291,8 @@ echo ""
     echo "Build:    Release -O2 -march=native"
     echo "Reps:     $REPS"
     echo "Configs:  ${#CONFIGS[@]} UVC + ${#GROTH16_CONFIGS[@]} Groth16 + ${#NOVA_CONFIGS[@]} Nova"
+    echo "OMP_NUM_THREADS: ${OMP_NUM_THREADS:-unset}"
+    echo "RAYON_NUM_THREADS: ${RAYON_NUM_THREADS:-unset}"
 } > "$OUT_DIR/system_info.txt"
 
 cat "$OUT_DIR/system_info.txt"
@@ -398,10 +404,35 @@ run_cpp() {
             --output-dir "$CSV_DIR" --reps "$REPS" --commit "$BENCH_COMMIT"
     done
 
+    i=0
+    for config in "${GROTH16_CONFIGS[@]}"; do
+        IFS=: read -r circuit K B <<< "$config"
+        i=$((i + 1))
+
+        run_bench "[Groth16-fixedcrs $i/${#GROTH16_CONFIGS[@]}] $circuit K=$K max-step=$B" \
+            "$BENCH" \
+            --circuit "$circuit" --n "$K" --B "$B" --scheme groth16-fixedcrs \
+            --output-dir "$CSV_DIR" --reps "$REPS" --commit "$BENCH_COMMIT"
+    done
+
+    i=0
+    for config in "${GROTH16_CONFIGS[@]}"; do
+        IFS=: read -r circuit K B <<< "$config"
+        i=$((i + 1))
+
+        run_bench "[Groth16-singlestep $i/${#GROTH16_CONFIGS[@]}] $circuit K=$K max-step=$B" \
+            "$BENCH" \
+            --circuit "$circuit" --n "$K" --B "$B" --scheme groth16-singlestep \
+            --output-dir "$CSV_DIR" --reps "$REPS" --commit "$BENCH_COMMIT"
+    done
+
+    grep -m1 "OpenMP max threads" "$LOG" | sed 's/^ *//' >> "$OUT_DIR/system_info.txt"
+
     echo ""
     echo "C++ IoT benchmarks complete."
     echo "  UVC:     $CSV_DIR/$UVC_RESULTS"
     echo "  Groth16: $CSV_DIR/groth16_results.csv"
+    echo "  Groth16 modes: $CSV_DIR/groth16_modes_results.csv"
 }
 
 # ── Nova Benchmarks (Rust) ─────────────────────────────────────────
@@ -412,6 +443,8 @@ run_nova() {
         echo "  WARNING: $NOVABIN not found, skipping Nova benchmarks."
         return 0
     fi
+
+    "$NOVABIN" --print-config 2>> "$OUT_DIR/system_info.txt"
 
     echo ""
     echo "============================================================"
@@ -428,8 +461,11 @@ run_nova() {
         run_bench "[$i/${#NOVA_CONFIGS[@]}] nova $circuit K=$K steps=$steps" \
             "$NOVABIN" \
             --circuit "$circuit" --n "$K" --steps "$steps" \
+            --runs "$NOVA_RUNS" \
             --output-dir "$CSV_DIR"
     done
+
+    grep -m1 "rayon_threads" "$LOG" | sed 's/^.*rayon_threads=/rayon threads: /' >> "$OUT_DIR/system_info.txt"
 
     echo ""
     echo "Nova IoT benchmarks complete."
