@@ -147,14 +147,16 @@ BENCH_COMMIT_FULL="$(git -C "$PROJECT_DIR" rev-parse HEAD)"
 BENCH_COMMIT="${BENCH_COMMIT_FULL:0:7}"
 
 write_coordinate_manifest() {
-    python3 - "$CSV_DIR/manifest.json" "$MODE" "${CONFIGS[@]}" -- "${NOVA_CONFIGS[@]}" <<'PY'
+    python3 - "$CSV_DIR/manifest.json" "$MODE" "${CONFIGS[@]}" -- "${GROTH16_CONFIGS[@]}" -- "${NOVA_CONFIGS[@]}" <<'PY'
 import json
 import sys
 
 output, mode, *configs = sys.argv[1:]
-separator = configs.index("--")
-cpp_configs = configs[:separator]
-nova_configs = configs[separator + 1:]
+first = configs.index("--")
+second = configs.index("--", first + 1)
+cpp_configs = configs[:first]
+groth16_configs = configs[first + 1:second]
+nova_configs = configs[second + 1:]
 if mode == "nova":
     selected_configs = nova_configs
     schemes = ["nova"]
@@ -168,21 +170,29 @@ else:
     selected_configs = cpp_configs
     schemes = []
 
-coordinates = []
-for config in selected_configs:
-    circuit, n, bound = config.split(":")
-    bound = int(bound)
-    steps = []
-    step = 1
-    while step <= bound:
-        steps.append(step)
-        step *= 2
-    if steps[-1] != bound:
-        steps.append(bound)
-    coordinates.append({"circuit": circuit, "n": int(n), "B": bound, "steps": steps})
+def build(configs):
+    out = []
+    for config in configs:
+        circuit, n, bound = config.split(":")
+        bound = int(bound)
+        steps = []
+        step = 1
+        while step <= bound:
+            steps.append(step)
+            step *= 2
+        if steps[-1] != bound:
+            steps.append(bound)
+        out.append({"circuit": circuit, "n": int(n), "B": bound, "steps": steps})
+    return out
+
+coordinates = build(selected_configs)
+# The Groth16 sweep runs its own, usually smaller, config list, so the three
+# Groth16 modes are checked against these coordinates, not the UVC ones.
+groth16_coordinates = build(groth16_configs) if mode in ("cpp", "all") else []
 
 with open(output, "w") as target:
-    json.dump({"suite": "paper", "schemes": schemes, "coordinates": coordinates}, target)
+    json.dump({"suite": "paper", "schemes": schemes, "coordinates": coordinates,
+               "groth16_coordinates": groth16_coordinates}, target)
     target.write("\n")
 PY
 }

@@ -187,14 +187,37 @@ def main(argv):
                 errors.append("Missing UVC row for %s n=%d B=%d step=%d" % (circuit, n, bound, step))
             if (circuit, n, step) not in groth_index:
                 errors.append("Missing Groth16 row for %s n=%d B=%d step=%d" % (circuit, n, bound, step))
-            if "groth16_fixedcrs" in schemes:
+            if "nova" in schemes and (circuit, n, step) not in nova_index:
+                errors.append("Missing Nova row for %s n=%d B=%d step=%d" % (circuit, n, bound, step))
+    # The Groth16 modes sweep uses its own config list (GROTH16_CONFIGS), which is
+    # normally a subset of the UVC configs and may pin a different B, so it is
+    # checked against the manifest's groth16_coordinates rather than coordinates.
+    if "groth16_fixedcrs" in schemes:
+        groth16_coordinates = manifest.get("groth16_coordinates")
+        if not isinstance(groth16_coordinates, list):
+            fail("Missing groth16_coordinates in coordinate manifest: %s" % manifest_path)
+        for coordinate in groth16_coordinates:
+            try:
+                circuit = coordinate["circuit"]
+                n = int(coordinate["n"])
+                bound = int(coordinate["B"])
+                steps = coordinate["steps"]
+            except (KeyError, TypeError, ValueError):
+                fail("Invalid groth16 coordinate in %s: %r" % (manifest_path, coordinate))
+            if not isinstance(circuit, str) or not isinstance(steps, list):
+                fail("Invalid groth16 coordinate in %s: %r" % (manifest_path, coordinate))
+            if steps != measured_steps(bound):
+                fail("Invalid measured steps for groth16 %s n=%d B=%d in %s"
+                     % (circuit, n, bound, manifest_path))
+            for step in steps:
+                if not isinstance(step, int):
+                    fail("Non-integer groth16 manifest step for %s n=%d B=%d" % (circuit, n, bound))
                 for mode in GROTH16_MODE_NAMES:
                     expected_modes.add((mode, circuit, n, bound, step))
                     if (mode, circuit, n, bound, step) not in modes_index:
                         errors.append("Missing Groth16 %s row for %s n=%d B=%d step=%d"
                                       % (mode, circuit, n, bound, step))
-            if "nova" in schemes and (circuit, n, step) not in nova_index:
-                errors.append("Missing Nova row for %s n=%d B=%d step=%d" % (circuit, n, bound, step))
+
     for key in sorted(uvc_index - expected_uvc):
         errors.append("Unexpected UVC row for %s n=%d B=%d step=%d" % key)
     for key in sorted(groth_index - expected_groth):
