@@ -13,6 +13,11 @@ import csv
 import os
 import sys
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+import bench_data
+from bench_data import GROTH16_MODES
+
 
 # ── Paper display names ───────────────────────────────────────────
 
@@ -33,41 +38,8 @@ CIRCUIT_ORDER = {
 
 # ── CSV readers ───────────────────────────────────────────────────
 
-CANONICAL_UVC_HEADER = [
-    "scheme", "circuit", "n", "B", "step", "setup_ms", "prove_ms",
-    "verify_ms", "crs_g1_published", "crs_g2", "vk_st_abc_g1",
-    "proof_bytes", "proof_bytes_compressed", "peak_mem_mb", "commit",
-]
-
-
-def read_csv(path):
-    """Read a CSV file, return list of dicts."""
-    if not os.path.exists(path):
-        return []
-    with open(path) as f:
-        return list(csv.DictReader(f))
-
-
-def read_canonical_uvc(path):
-    """Read canonical UVC rows or terminate with a path-specific error."""
-    try:
-        with open(path, newline="") as f:
-            reader = csv.DictReader(f)
-            if reader.fieldnames != CANONICAL_UVC_HEADER:
-                raise ValueError
-            rows = list(reader)
-    except (OSError, ValueError):
-        sys.exit(f"FATAL: {path}: not a canonical uvc_gamma_v1 results file (expected canonical header and scheme)")
-    if any(row.get("scheme") != "uvc_gamma_v1" for row in rows):
-        sys.exit(f"FATAL: {path}: not a canonical uvc_gamma_v1 results file (expected canonical header and scheme)")
-    return rows
-
-
-def normalize_circuit(name):
-    """Normalize legacy circuit names."""
-    if name == "matmul":
-        return "hadamard"
-    return name
+CANONICAL_UVC_HEADER = bench_data.CANONICAL_UVC_HEADER
+normalize_circuit = bench_data.normalize_circuit
 
 
 def circuit_sort_key(circuit, n):
@@ -92,6 +64,13 @@ def fmt_ms(val):
         return f"{v/1000:.1f}k"
 
 
+def fmt_bytes(val):
+    """Format a (possibly aggregated float) byte count."""
+    if val is None or val == "":
+        return "---"
+    return str(int(float(val)))
+
+
 def fmt_sec(val):
     """Format milliseconds as seconds."""
     if val is None or val == "":
@@ -107,57 +86,38 @@ def fmt_sec(val):
 
 # ── Data loading ──────────────────────────────────────────────────
 
-def load_all(csv_dir):
-    """Load and index all benchmark CSVs."""
-    uvc_rows = read_canonical_uvc(os.path.join(csv_dir, "uvc_results.csv"))
-    g16_rows = read_csv(os.path.join(csv_dir, "groth16_results.csv"))
-    nova_rows = read_csv(os.path.join(csv_dir, "nova_results.csv"))
-
-    # Index UVC by (circuit, n, B, step)
-    uvc = {}
-    for r in uvc_rows:
-        c = normalize_circuit(r["circuit"])
-        key = (c, int(r["n"]), int(r["B"]), int(r["step"]))
-        uvc[key] = r
-
-    # Groth16 by (circuit, n, step) — deduplicate (keep first)
-    g16 = {}
-    for r in g16_rows:
-        c = normalize_circuit(r["circuit"])
-        key = (c, int(r["n"]), int(r["step"]))
-        if key not in g16:
-            g16[key] = r
-
-    # Nova by (circuit, n, step) — keep last
-    nova = {}
-    for r in nova_rows:
-        c = normalize_circuit(r.get("circuit", ""))
-        key = (c, int(r["n"]), int(r["step"]))
-        nova[key] = r
-
-    return uvc, g16, nova
+def g16_row(data, mode, circuit, n, B, step):
+    """One Groth16 mode row, with the legacy fallback for on-demand."""
+    row = data["g16_modes"].get((mode, circuit, n, B, step))
+    if row is None and mode == "ondemand":
+        row = data["g16_legacy"].get((circuit, n, step))
+    return row or {}
 
 
-def get_circuit_configs(uvc):
+def any_b(data, circuit, n):
+    """Any B value measured for this (circuit, n); used by B-independent lookups."""
+    bs = sorted({B for (c, nn, B, _s) in data["uvc"] if c == circuit and nn == n})
+    return bs[0] if bs else None
+
+
+def get_circuit_configs(data):
     """Get unique (circuit, n) pairs sorted in paper order."""
-    configs = set()
-    for (c, n, B, step) in uvc.keys():
-        configs.add((c, n))
+    configs = {(c, n) for (c, n, _B, _step) in data["uvc"]}
     return sorted(configs, key=lambda x: circuit_sort_key(x[0], x[1]))
 
 
-def get_b_values(uvc):
+def get_b_values(data):
     """Get sorted unique B values from UVC data."""
-    return sorted(set(B for (c, n, B, step) in uvc.keys()))
+    return sorted({B for (_c, _n, B, _step) in data["uvc"]})
 
 
-def get_display_steps(uvc):
+def get_display_steps(data):
     """Get representative step values for display.
 
     Uses powers of 4 (1, 4, 16, 64, 256, 1024, ...) that exist in data,
     plus the maximum step if not already included.
     """
-    all_steps = set(step for (c, n, B, step) in uvc.keys())
+    all_steps = {step for (_c, _n, _B, step) in data["uvc"]}
     if not all_steps:
         return [1, 4, 16, 64]
     max_step = max(all_steps)
@@ -207,55 +167,60 @@ def format_table(title, headers, rows):
 
 # ── Table generators (return strings) ────────────────────────────
 
-def gen_prover_table(uvc, g16, nova):
+def gen_prover_table(data):
     """Generate per-step proving time comparison with dynamic B columns."""
-    configs = get_circuit_configs(uvc)
-    b_values = get_b_values(uvc)
-    steps = get_display_steps(uvc)
+    configs = get_circuit_configs(data)
+    b_values = get_b_values(data)
+    steps = get_display_steps(data)
 
     headers = ["Circuit", "n", "Step"]
     for B in b_values:
         headers.append(f"Ours(B={B})")
-    headers.extend(["Groth16", "Nova"])
+    headers.extend(["G16 on-dem", "G16 fixCRS", "G16 single",
+                    "Nova fold", "Nova compr"])
 
     num_cols = len(headers)
     rows = []
 
     for circuit, n in configs:
+        ref_b = any_b(data, circuit, n)
         for j_idx, j in enumerate(steps):
             circ_col = CIRCUIT_DISPLAY.get(circuit, circuit) if j_idx == 0 else ""
             n_col = str(n) if j_idx == 0 else ""
 
             row = [circ_col, n_col, str(j)]
             for B in b_values:
-                uvc_r = uvc.get((circuit, n, B, j), {})
+                uvc_r = data["uvc"].get((circuit, n, B, j), {})
                 row.append(fmt_ms(uvc_r.get("prove_ms")))
 
-            g = g16.get((circuit, n, j), {})
-            nv = nova.get((circuit, n, j), {})
-            row.append(fmt_ms(g.get("prove_ms")))
+            for mode in GROTH16_MODES:
+                row.append(fmt_ms(g16_row(data, mode, circuit, n, ref_b, j).get("prove_ms")))
+            nv = data["nova"].get((circuit, n, j), {})
             row.append(fmt_ms(nv.get("fold_ms")))
+            row.append(fmt_ms(nv.get("compress_ms")))
             rows.append(row)
         rows.append([""] * num_cols)
 
     return format_table("Per-step Proving Time (ms)", headers, rows)
 
 
-def gen_verify_table(uvc, g16, nova):
+def gen_verify_table(data):
     """Generate verification time comparison.
 
     Verification time is constant across B for UVC (always 3 pairings),
     so show a single UVC column. Falls through B values to find data.
     """
-    configs = get_circuit_configs(uvc)
-    b_values = get_b_values(uvc)
-    steps = get_display_steps(uvc)
+    configs = get_circuit_configs(data)
+    b_values = get_b_values(data)
+    steps = get_display_steps(data)
 
-    headers = ["Circuit", "n", "Step", "Ours", "Groth16", "Nova"]
+    headers = ["Circuit", "n", "Step", "Ours", "G16 on-dem",
+               "G16 fixCRS", "G16 single", "Nova"]
     num_cols = len(headers)
     rows = []
 
     for circuit, n in configs:
+        ref_b = any_b(data, circuit, n)
         for j_idx, j in enumerate(steps):
             circ_col = CIRCUIT_DISPLAY.get(circuit, circuit) if j_idx == 0 else ""
             n_col = str(n) if j_idx == 0 else ""
@@ -263,54 +228,53 @@ def gen_verify_table(uvc, g16, nova):
             # Try each B until we find data for this step
             uvc_r = {}
             for B in b_values:
-                uvc_r = uvc.get((circuit, n, B, j), {})
+                uvc_r = data["uvc"].get((circuit, n, B, j), {})
                 if uvc_r:
                     break
 
-            g = g16.get((circuit, n, j), {})
-            nv = nova.get((circuit, n, j), {})
+            nv = data["nova"].get((circuit, n, j), {})
 
-            rows.append([
-                circ_col, n_col, str(j),
-                fmt_ms(uvc_r.get("verify_ms")),
-                fmt_ms(g.get("verify_ms")),
-                fmt_ms(nv.get("verify_ms")),
-            ])
+            row = [circ_col, n_col, str(j), fmt_ms(uvc_r.get("verify_ms"))]
+            for mode in GROTH16_MODES:
+                row.append(fmt_ms(g16_row(data, mode, circuit, n, ref_b, j).get("verify_ms")))
+            row.append(fmt_ms(nv.get("verify_ms")))
+            rows.append(row)
         rows.append([""] * num_cols)
 
     return format_table("Per-step Verification Time (ms)", headers, rows)
 
 
-def gen_setup_table(uvc, g16, nova):
+def gen_setup_table(data):
     """Generate setup cost comparison with dynamic B columns."""
-    configs = get_circuit_configs(uvc)
-    b_values = get_b_values(uvc)
+    configs = get_circuit_configs(data)
+    b_values = get_b_values(data)
 
     headers = ["Circuit", "n"]
     for B in b_values:
         headers.append(f"Ours(B={B})")
-    headers.extend(["Groth16(j=1)", "Nova"])
+    headers.extend(["G16 on-dem(j=1)", "G16 fixCRS", "G16 single", "Nova"])
     rows = []
 
     for circuit, n in configs:
+        ref_b = any_b(data, circuit, n)
         row = [CIRCUIT_DISPLAY.get(circuit, circuit), str(n)]
         for B in b_values:
-            uvc_r = uvc.get((circuit, n, B, 1), {})
+            uvc_r = data["uvc"].get((circuit, n, B, 1), {})
             row.append(fmt_sec(uvc_r.get("setup_ms")))
 
-        g = g16.get((circuit, n, 1), {})
-        nv = nova.get((circuit, n, 1), {})
-        row.append(fmt_sec(g.get("setup_ms")))
+        for mode in GROTH16_MODES:
+            row.append(fmt_sec(g16_row(data, mode, circuit, n, ref_b, 1).get("setup_ms")))
+        nv = data["nova"].get((circuit, n, 1), {})
         row.append(fmt_sec(nv.get("setup_ms")))
         rows.append(row)
 
     return format_table("Setup Cost (seconds)", headers, rows)
 
 
-def gen_proof_size_table(uvc, g16, nova):
+def gen_proof_size_table(data):
     """Generate proof size comparison."""
-    configs = get_circuit_configs(uvc)
-    b_values = get_b_values(uvc)
+    configs = get_circuit_configs(data)
+    b_values = get_b_values(data)
     headers = ["Circuit", "n", "Ours", "Groth16", "Nova"]
     rows = []
 
@@ -318,24 +282,24 @@ def gen_proof_size_table(uvc, g16, nova):
         # Use any available B value for proof size (constant across B)
         uvc_r = {}
         for B in b_values:
-            uvc_r = uvc.get((circuit, n, B, 1), {})
+            uvc_r = data["uvc"].get((circuit, n, B, 1), {})
             if uvc_r:
                 break
 
-        g = g16.get((circuit, n, 1), {})
-        nv = nova.get((circuit, n, 1), {})
+        g = g16_row(data, "ondemand", circuit, n, any_b(data, circuit, n), 1)
+        nv = data["nova"].get((circuit, n, 1), {})
 
         rows.append([
             CIRCUIT_DISPLAY.get(circuit, circuit), str(n),
             uvc_r.get("proof_bytes", "---"),
             g.get("proof_bytes", "---"),
-            nv.get("proof_bytes", "---"),
+            fmt_bytes(nv.get("proof_bytes")),
         ])
 
     return format_table("Proof Size (bytes)", headers, rows)
 
 
-def gen_crossover_table(uvc, g16):
+def gen_crossover_table(data):
     """Generate crossover analysis table with dynamic B columns.
 
     For each B, finds j* where UVC per-step update cost first becomes less
@@ -343,8 +307,8 @@ def gen_crossover_table(uvc, g16):
     This is the marginal crossover: beyond j*, every additional step is
     cheaper with UVC than re-proving with Groth16.
     """
-    configs = get_circuit_configs(uvc)
-    b_values = get_b_values(uvc)
+    configs = get_circuit_configs(data)
+    b_values = get_b_values(data)
 
     headers = ["Circuit", "n"]
     for B in b_values:
@@ -356,22 +320,21 @@ def gen_crossover_table(uvc, g16):
         for B in b_values:
             # Get UVC per-step proving time (median across all steps for this B)
             uvc_prove_times = []
-            for (c2, n2, B2, s2) in uvc:
+            for (c2, n2, B2, s2) in data["uvc"]:
                 if c2 == circuit and n2 == n and B2 == B:
-                    uvc_prove_times.append(float(uvc[(c2, n2, B2, s2)]["prove_ms"]))
+                    uvc_prove_times.append(
+                        float(data["uvc"][(c2, n2, B2, s2)]["prove_ms"]))
             if not uvc_prove_times:
                 row.append("---")
                 continue
             uvc_prove_per_step = sorted(uvc_prove_times)[len(uvc_prove_times) // 2]
 
-            # Collect all available Groth16 steps for this (circuit, n)
-            g16_steps = sorted(
-                s for (c2, n2, s) in g16 if c2 == circuit and n2 == n
-            )
+            # Collect all available Groth16 on-demand steps for this (circuit, n)
+            g16_steps = bench_data.measured_steps(B)
 
             found = None
             for j in g16_steps:
-                g16_r = g16.get((circuit, n, j))
+                g16_r = g16_row(data, "ondemand", circuit, n, B, j)
                 if not g16_r:
                     continue
                 g16_cost = float(g16_r["setup_ms"]) + float(g16_r["prove_ms"])
@@ -392,17 +355,17 @@ def gen_crossover_table(uvc, g16):
         headers, rows)
 
 
-def gen_memory_table(uvc):
+def gen_memory_table(data):
     """Generate CRS size and peak memory table."""
-    configs = get_circuit_configs(uvc)
-    b_values = get_b_values(uvc)
+    configs = get_circuit_configs(data)
+    b_values = get_b_values(data)
 
     headers = ["Circuit", "n", "B", "CRS G1", "CRS G2", "Peak Mem (MB)"]
     rows = []
 
     for circuit, n in configs:
         for b_idx, B in enumerate(b_values):
-            uvc_r = uvc.get((circuit, n, B, 1), {})
+            uvc_r = data["uvc"].get((circuit, n, B, 1), {})
             if not uvc_r:
                 continue
             circ_col = CIRCUIT_DISPLAY.get(circuit, circuit) if b_idx == 0 else ""
@@ -417,190 +380,76 @@ def gen_memory_table(uvc):
     return format_table("CRS Size and Memory Usage", headers, rows)
 
 
-def gen_cumulative_table(uvc, g16, nova):
-    """Generate cumulative proving time comparison at max B.
+def gen_cumulative_table(data):
+    """Generate cumulative total-time comparison for every (circuit, n, B).
 
-    Shows total time for all B steps: UVC (setup + B*prove) vs
-    Groth16 (sum of setup_j + prove_j) vs Nova (setup + total_fold + compress).
+    Series: UVC, the three Groth16 modes, and both Nova kinds, all at step = B.
     """
-    configs = get_circuit_configs(uvc)
-    b_values = get_b_values(uvc)
-    max_b = max(b_values) if b_values else 64
-
     headers = ["Circuit", "n", "B",
-               "UVC total(s)", "G16 total(s)", "Nova total(s)",
-               "UVC/G16", "UVC/Nova"]
+               "UVC(s)", "G16 on-dem(s)", "G16 fixCRS(s)", "G16 single(s)",
+               "Nova fold(s)", "Nova compr(s)",
+               "UVC/G16od", "UVC/G16fix", "UVC/G16ss",
+               "UVC/NovaF", "UVC/NovaC"]
     rows = []
 
-    for circuit, n in configs:
-        for B in b_values:
-            uvc_setup_r = uvc.get((circuit, n, B, 1))
-            if not uvc_setup_r:
-                continue
+    for circuit, n, B in bench_data.uvc_configs(data):
+        uvc_total = bench_data.cumulative_uvc(data, circuit, n, B, B)
+        series = [bench_data.cumulative_groth16(data, m, circuit, n, B, B)
+                  for m in GROTH16_MODES]
+        series += [bench_data.cumulative_nova(data, k, circuit, n, B)
+                   for k in bench_data.NOVA_KINDS]
 
-            uvc_setup = float(uvc_setup_r["setup_ms"])
-            # Median per-step proving time
-            uvc_prove_times = []
-            for (c2, n2, B2, s2) in uvc:
-                if c2 == circuit and n2 == n and B2 == B:
-                    uvc_prove_times.append(float(uvc[(c2, n2, B2, s2)]["prove_ms"]))
-            uvc_per_step = sorted(uvc_prove_times)[len(uvc_prove_times) // 2]
-            uvc_total = (uvc_setup + B * uvc_per_step) / 1000.0
+        def sec(v):
+            return f"{v / 1000.0:.1f}" if v is not None else "---"
 
-            # Groth16: sum over all steps up to B
-            g16_total = 0.0
-            g16_steps = sorted(
-                s for (c2, n2, s) in g16 if c2 == circuit and n2 == n and s <= B
-            )
-            if g16_steps:
-                # Approximate: use last available step's cost-per-step scaling
-                last_step = max(g16_steps)
-                g16_last = g16[(circuit, n, last_step)]
-                # Groth16 cost at step j ~ (setup_1 + prove_1) * j / 1
-                # More precisely: interpolate from available data
-                # Sum = sum_{j=1}^{B} (setup_j + prove_j)
-                # Use trapezoidal approximation with available data points
-                prev_j = 0
-                prev_cost = 0.0
-                for j in g16_steps:
-                    g16_r = g16[(circuit, n, j)]
-                    cost = float(g16_r["setup_ms"]) + float(g16_r["prove_ms"])
-                    # Trapezoidal: area = (j - prev_j) * (cost + prev_cost) / 2
-                    g16_total += (j - prev_j) * (cost + prev_cost) / 2.0
-                    prev_j = j
-                    prev_cost = cost
-                # Extend to B if last measured step < B
-                if last_step < B:
-                    g16_total += (B - last_step) * prev_cost
-                g16_total /= 1000.0
+        def ratio(v):
+            return f"{uvc_total / v:.2f}x" if (v and uvc_total is not None) else "---"
 
-            # Nova: setup + total_fold_ms at step B + compress
-            nv_r = nova.get((circuit, n, B))
-            nova_total = 0.0
-            if nv_r:
-                nova_total = (
-                    float(nv_r["setup_ms"])
-                    + float(nv_r["total_fold_ms"])
-                    + float(nv_r["compress_ms"])
-                ) / 1000.0
+        rows.append([CIRCUIT_DISPLAY.get(circuit, circuit), str(n), str(B),
+                     sec(uvc_total)] + [sec(v) for v in series]
+                    + [ratio(v) for v in series])
 
-            circ_col = CIRCUIT_DISPLAY.get(circuit, circuit)
-            ratio_g16 = f"{uvc_total/g16_total:.2f}x" if g16_total > 0 else "---"
-            ratio_nova = f"{uvc_total/nova_total:.2f}x" if nova_total > 0 else "---"
-
-            rows.append([
-                circ_col, str(n), str(B),
-                f"{uvc_total:.1f}",
-                f"{g16_total:.1f}" if g16_total > 0 else "---",
-                f"{nova_total:.1f}" if nova_total > 0 else "---",
-                ratio_g16, ratio_nova,
-            ])
-
-    return format_table("Cumulative Total Time (seconds) — setup + all proving steps",
+    return format_table("Cumulative Total Time (seconds) - setup + all proving steps",
                         headers, rows)
 
 
-def gen_cumulative_csv(uvc, g16, nova, csv_path):
-    """Write per-step cumulative proving time to CSV for plotting.
-
-    For each (circuit, n, B) config, outputs cumulative time at every
-    power-of-2 step up to B.
-    """
-    configs = get_circuit_configs(uvc)
-    b_values = get_b_values(uvc)
-
+def gen_cumulative_csv(data, csv_path):
+    """Write per-step cumulative time for every series to CSV for plotting."""
     fieldnames = [
-        "circuit", "n", "B", "step",
-        "uvc_cum_s", "g16_cum_s", "nova_cum_s",
+        "circuit", "n", "B", "step", "uvc_cum_s",
+        "g16_ondemand_cum_s", "g16_ondemand_prove_only_cum_s",
+        "g16_fixedcrs_cum_s", "g16_singlestep_cum_s",
+        "nova_foldonly_cum_s", "nova_compressed_cum_s",
     ]
+
+    def sec(v):
+        return f"{v / 1000.0:.4f}" if v is not None else ""
 
     with open(csv_path, "w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
 
-        for circuit, n in configs:
-            for B in b_values:
-                uvc_setup_r = uvc.get((circuit, n, B, 1))
-                if not uvc_setup_r:
-                    continue
-
-                uvc_setup = float(uvc_setup_r["setup_ms"])
-                # Median per-step proving time
-                uvc_prove_times = []
-                for (c2, n2, B2, s2) in uvc:
-                    if c2 == circuit and n2 == n and B2 == B:
-                        uvc_prove_times.append(
-                            float(uvc[(c2, n2, B2, s2)]["prove_ms"]))
-                uvc_per_step = sorted(uvc_prove_times)[
-                    len(uvc_prove_times) // 2]
-
-                # Groth16 measured steps and per-step costs
-                g16_measured = sorted(
-                    s for (c2, n2, s) in g16
-                    if c2 == circuit and n2 == n
-                )
-                g16_cost_at = {}
-                for s in g16_measured:
-                    r = g16[(circuit, n, s)]
-                    g16_cost_at[s] = (
-                        float(r["setup_ms"]) + float(r["prove_ms"]))
-
-                # Nova setup + compress (constant across steps)
-                nova_measured = sorted(
-                    s for (c2, n2, s) in nova
-                    if c2 == circuit and n2 == n
-                )
-                nova_setup = (float(nova[(circuit, n, nova_measured[0])][
-                    "setup_ms"]) if nova_measured else 0)
-                nova_compress = (float(nova[(circuit, n, nova_measured[0])][
-                    "compress_ms"]) if nova_measured else 0)
-
-                # Display steps: powers of 2 up to B
-                display = []
-                s = 1
-                while s <= B:
-                    display.append(s)
-                    s *= 2
-                if B not in display:
-                    display.append(B)
-
-                for step in display:
-                    # UVC cumulative
-                    uvc_cum = (uvc_setup + step * uvc_per_step) / 1000.0
-
-                    # Groth16 cumulative (trapezoidal interpolation)
-                    g16_cum = 0.0
-                    prev_j, prev_cost = 0, 0.0
-                    for j in g16_measured:
-                        if j > step:
-                            break
-                        cost = g16_cost_at[j]
-                        g16_cum += (j - prev_j) * (cost + prev_cost) / 2.0
-                        prev_j, prev_cost = j, cost
-                    if prev_j < step:
-                        g16_cum += (step - prev_j) * prev_cost
-                    g16_cum /= 1000.0
-
-                    # Nova cumulative
-                    nv_r = nova.get((circuit, n, step))
-                    nova_cum = None
-                    if nv_r:
-                        nova_cum = (
-                            float(nv_r["setup_ms"])
-                            + float(nv_r["total_fold_ms"])
-                            + float(nv_r["compress_ms"])
-                        ) / 1000.0
-
-                    writer.writerow({
-                        "circuit": circuit,
-                        "n": n,
-                        "B": B,
-                        "step": step,
-                        "uvc_cum_s": f"{uvc_cum:.4f}",
-                        "g16_cum_s": f"{g16_cum:.4f}",
-                        "nova_cum_s": (f"{nova_cum:.4f}"
-                                       if nova_cum is not None else ""),
-                    })
+        for circuit, n, B in bench_data.uvc_configs(data):
+            for step in bench_data.measured_steps(B):
+                writer.writerow({
+                    "circuit": circuit,
+                    "n": n,
+                    "B": B,
+                    "step": step,
+                    "uvc_cum_s": sec(bench_data.cumulative_uvc(data, circuit, n, B, step)),
+                    "g16_ondemand_cum_s": sec(bench_data.cumulative_groth16(
+                        data, "ondemand", circuit, n, B, step)),
+                    "g16_ondemand_prove_only_cum_s": sec(bench_data.cumulative_groth16(
+                        data, "ondemand", circuit, n, B, step, proving_only=True)),
+                    "g16_fixedcrs_cum_s": sec(bench_data.cumulative_groth16(
+                        data, "fixedcrs", circuit, n, B, step)),
+                    "g16_singlestep_cum_s": sec(bench_data.cumulative_groth16(
+                        data, "singlestep", circuit, n, B, step)),
+                    "nova_foldonly_cum_s": sec(bench_data.cumulative_nova(
+                        data, "foldonly", circuit, n, step)),
+                    "nova_compressed_cum_s": sec(bench_data.cumulative_nova(
+                        data, "compressed", circuit, n, step)),
+                })
 
     print(f"  Saved: {os.path.basename(csv_path)}")
 
@@ -608,19 +457,19 @@ def gen_cumulative_csv(uvc, g16, nova, csv_path):
 # ── Save to .txt files ───────────────────────────────────────────
 
 TABLE_DEFS = [
-    ("T01_proving_time",      "gen_prover_table",      ("uvc", "g16", "nova")),
-    ("T02_verification_time", "gen_verify_table",       ("uvc", "g16", "nova")),
-    ("T03_setup_cost",        "gen_setup_table",        ("uvc", "g16", "nova")),
-    ("T04_proof_size",        "gen_proof_size_table",   ("uvc", "g16", "nova")),
-    ("T05_crossover",         "gen_crossover_table",    ("uvc", "g16")),
-    ("T06_memory",            "gen_memory_table",       ("uvc",)),
-    ("T07_cumulative",        "gen_cumulative_table",   ("uvc", "g16", "nova")),
+    ("T01_proving_time",      "gen_prover_table"),
+    ("T02_verification_time", "gen_verify_table"),
+    ("T03_setup_cost",        "gen_setup_table"),
+    ("T04_proof_size",        "gen_proof_size_table"),
+    ("T05_crossover",         "gen_crossover_table"),
+    ("T06_memory",            "gen_memory_table"),
+    ("T07_cumulative",        "gen_cumulative_table"),
 ]
 
 def save_tables(csv_dir, save_dir):
     """Save individual .txt table files and summary.txt to tables/ dir."""
-    uvc, g16, nova = load_all(csv_dir)
-    if not uvc:
+    data = bench_data.load_run(csv_dir)
+    if not data["uvc"]:
         print("No UVC data found.", file=sys.stderr)
         return
 
@@ -634,7 +483,6 @@ def save_tables(csv_dir, save_dir):
         with open(sys_info_path) as f:
             sys_info = f.read()
 
-    data = {"uvc": uvc, "g16": g16, "nova": nova}
     gen_funcs = {
         "gen_prover_table": gen_prover_table,
         "gen_verify_table": gen_verify_table,
@@ -647,10 +495,8 @@ def save_tables(csv_dir, save_dir):
 
     # Generate each table and save as individual .txt file
     all_tables = []
-    for filename, func_name, arg_names in TABLE_DEFS:
-        func = gen_funcs[func_name]
-        args = [data[a] for a in arg_names]
-        table_text = func(*args)
+    for filename, func_name in TABLE_DEFS:
+        table_text = gen_funcs[func_name](data)
 
         txt_path = os.path.join(tables_dir, f"{filename}.txt")
         with open(txt_path, "w") as f:
@@ -679,16 +525,16 @@ def save_tables(csv_dir, save_dir):
     # Also write LaTeX tables
     latex_path = os.path.join(tables_dir, "tables_latex.tex")
     with open(latex_path, "w") as f:
-        f.write(gen_proving_latex(uvc, g16, nova))
+        f.write(gen_proving_latex(data))
         f.write("\n\n")
-        f.write(gen_verify_proof_latex(uvc, g16, nova))
+        f.write(gen_verify_proof_latex(data))
         f.write("\n\n")
-        f.write(gen_setup_latex(uvc, g16, nova))
+        f.write(gen_setup_latex(data))
     print(f"  Saved: tables/tables_latex.tex")
 
     # Per-step cumulative proving time CSV (for plotting)
     cum_csv_path = os.path.join(csv_dir, "cumulative_prove_time.csv")
-    gen_cumulative_csv(uvc, g16, nova, cum_csv_path)
+    gen_cumulative_csv(data, cum_csv_path)
 
     return summary_path
 
@@ -697,9 +543,9 @@ def save_tables(csv_dir, save_dir):
 
 def print_summary(csv_dir):
     """Print full terminal summary."""
-    uvc, g16, nova = load_all(csv_dir)
+    data = bench_data.load_run(csv_dir)
 
-    if not uvc:
+    if not data["uvc"]:
         print("No UVC data found.")
         return
 
@@ -707,16 +553,18 @@ def print_summary(csv_dir):
     print("############################################################")
     print("  UVC Benchmark Summary")
     print(f"  Data: {csv_dir}")
-    print(f"  UVC rows: {len(uvc)}, Groth16 rows: {len(g16)}, Nova rows: {len(nova)}")
+    print(f"  UVC rows: {len(data['uvc'])}, "
+          f"Groth16 rows: {len(data['g16_modes']) or len(data['g16_legacy'])}, "
+          f"Nova rows: {len(data['nova'])}")
     print("############################################################")
 
-    print(gen_prover_table(uvc, g16, nova))
-    print(gen_verify_table(uvc, g16, nova))
-    print(gen_setup_table(uvc, g16, nova))
-    print(gen_proof_size_table(uvc, g16, nova))
-    print(gen_crossover_table(uvc, g16))
-    print(gen_memory_table(uvc))
-    print(gen_cumulative_table(uvc, g16, nova))
+    print(gen_prover_table(data))
+    print(gen_verify_table(data))
+    print(gen_setup_table(data))
+    print(gen_proof_size_table(data))
+    print(gen_crossover_table(data))
+    print(gen_memory_table(data))
+    print(gen_cumulative_table(data))
     print()
 
 
@@ -742,11 +590,11 @@ def latex_n(n):
     return str(n)
 
 
-def gen_proving_latex(uvc, g16, nova):
+def gen_proving_latex(data):
     """Generate per-step proving time LaTeX table with dynamic B columns."""
-    configs = get_circuit_configs(uvc)
-    b_values = get_b_values(uvc)
-    steps = get_display_steps(uvc)
+    configs = get_circuit_configs(data)
+    b_values = get_b_values(data)
+    steps = get_display_steps(data)
     num_b = len(b_values)
 
     lines = []
@@ -761,7 +609,7 @@ def gen_proving_latex(uvc, g16, nova):
     lines.append(r"{\footnotesize\setlength{\tabcolsep}{3pt}")
 
     # Columns: Circuit, K, Step, Ours(B=b1), ..., Ours(B=bN), Groth16, Nova
-    col_spec = "@{}ccr" + "c" * num_b + "cc@{}"
+    col_spec = "@{}ccr" + "c" * num_b + "ccccc@{}"
     lines.append(rf"\begin{{tabular}}{{{col_spec}}}")
     lines.append(r"\toprule")
 
@@ -769,16 +617,18 @@ def gen_proving_latex(uvc, g16, nova):
     sub_parts = [r"\textbf{Circuit}", "$K$", r"\textbf{Step}"]
     for B in b_values:
         sub_parts.append(rf"\textbf{{Ours}} ($B\!=\!{B}$)")
-    sub_parts.extend([r"\textbf{Groth16}", r"\textbf{Nova}"])
+    sub_parts.extend([r"\textbf{G16 on-dem.}", r"\textbf{G16 fix.\ CRS}",
+                      r"\textbf{G16 single}", r"\textbf{Nova fold}",
+                      r"\textbf{Nova compr.}"])
     lines.append(" & ".join(sub_parts) + r" \\")
     lines.append(r"\midrule")
 
     for ci, (circuit, n) in enumerate(configs):
         num_steps = len(steps)
+        ref_b = any_b(data, circuit, n)
 
         for j_idx, j in enumerate(steps):
-            g = g16.get((circuit, n, j), {})
-            nv = nova.get((circuit, n, j), {})
+            nv = data["nova"].get((circuit, n, j), {})
 
             if j_idx == 0:
                 circ = rf"\multirow{{{num_steps}}}{{*}}{{{latex_circuit_name(circuit)}}}"
@@ -789,10 +639,12 @@ def gen_proving_latex(uvc, g16, nova):
 
             parts = [circ, n_col, str(j)]
             for B in b_values:
-                uvc_r = uvc.get((circuit, n, B, j), {})
+                uvc_r = data["uvc"].get((circuit, n, B, j), {})
                 parts.append(fmt_ms(uvc_r.get("prove_ms")))
-            parts.append(fmt_ms(g.get("prove_ms")))
+            for mode in GROTH16_MODES:
+                parts.append(fmt_ms(g16_row(data, mode, circuit, n, ref_b, j).get("prove_ms")))
             parts.append(fmt_ms(nv.get("fold_ms")))
+            parts.append(fmt_ms(nv.get("compress_ms")))
             lines.append(" & ".join(parts) + r" \\")
 
         if ci < len(configs) - 1:
@@ -806,13 +658,13 @@ def gen_proving_latex(uvc, g16, nova):
     return "\n".join(lines)
 
 
-def gen_verify_proof_latex(uvc, g16, nova):
+def gen_verify_proof_latex(data):
     """Generate verification time + proof size LaTeX table.
 
     Verification is constant across B for UVC, so one column suffices.
     """
-    configs = get_circuit_configs(uvc)
-    b_values = get_b_values(uvc)
+    configs = get_circuit_configs(data)
+    b_values = get_b_values(data)
     ref_b = b_values[0] if b_values else 64
 
     lines = []
@@ -835,9 +687,9 @@ def gen_verify_proof_latex(uvc, g16, nova):
     lines.append(r"\midrule")
 
     for circuit, n in configs:
-        uvc_r = uvc.get((circuit, n, ref_b, 1), {})
-        g = g16.get((circuit, n, 1), {})
-        nv = nova.get((circuit, n, 1), {})
+        uvc_r = data["uvc"].get((circuit, n, ref_b, 1), {})
+        g = g16_row(data, "ondemand", circuit, n, any_b(data, circuit, n), 1)
+        nv = data["nova"].get((circuit, n, 1), {})
 
         cname = CIRCUIT_DISPLAY.get(circuit, circuit)
         lines.append(
@@ -847,7 +699,7 @@ def gen_verify_proof_latex(uvc, g16, nova):
             f"{fmt_ms(nv.get('verify_ms'))} & "
             f"{uvc_r.get('proof_bytes', '---')} & "
             f"{g.get('proof_bytes', '---')} & "
-            f"{nv.get('proof_bytes', '---')} \\\\"
+            f"{fmt_bytes(nv.get('proof_bytes'))} \\\\"
         )
 
     lines.append(r"\bottomrule")
@@ -858,10 +710,10 @@ def gen_verify_proof_latex(uvc, g16, nova):
     return "\n".join(lines)
 
 
-def gen_setup_latex(uvc, g16, nova):
+def gen_setup_latex(data):
     """Generate setup cost comparison table with dynamic B columns."""
-    configs = get_circuit_configs(uvc)
-    b_values = get_b_values(uvc)
+    configs = get_circuit_configs(data)
+    b_values = get_b_values(data)
 
     lines = []
     lines.append(r"% Auto-generated setup comparison")
@@ -873,25 +725,28 @@ def gen_setup_latex(uvc, g16, nova):
     lines.append(r"\renewcommand{\arraystretch}{1.2}")
     lines.append(r"{\footnotesize")
 
-    col_spec = "@{}ll" + "c" * len(b_values) + "cc@{}"
+    col_spec = "@{}ll" + "c" * len(b_values) + "cccc@{}"
     lines.append(rf"\begin{{tabular}}{{{col_spec}}}")
     lines.append(r"\toprule")
 
     header_parts = [r"\textbf{Circuit}", "$K$"]
     for B in b_values:
         header_parts.append(rf"\textbf{{Ours}} ($B\!=\!{B}$)")
-    header_parts.extend([r"\textbf{Groth16} ($j\!=\!1$)", r"\textbf{Nova}"])
+    header_parts.extend([r"\textbf{G16 on-dem.} ($j\!=\!1$)",
+                         r"\textbf{G16 fix.\ CRS}", r"\textbf{G16 single}",
+                         r"\textbf{Nova}"])
     lines.append(" & ".join(header_parts) + r" \\")
     lines.append(r"\midrule")
 
     for circuit, n in configs:
+        ref_b = any_b(data, circuit, n)
         parts = [CIRCUIT_DISPLAY.get(circuit, circuit), str(n)]
         for B in b_values:
-            uvc_r = uvc.get((circuit, n, B, 1), {})
+            uvc_r = data["uvc"].get((circuit, n, B, 1), {})
             parts.append(fmt_sec(uvc_r.get("setup_ms")))
-        g = g16.get((circuit, n, 1), {})
-        nv = nova.get((circuit, n, 1), {})
-        parts.append(fmt_sec(g.get("setup_ms")))
+        for mode in GROTH16_MODES:
+            parts.append(fmt_sec(g16_row(data, mode, circuit, n, ref_b, 1).get("setup_ms")))
+        nv = data["nova"].get((circuit, n, 1), {})
         parts.append(fmt_sec(nv.get("setup_ms")))
         lines.append(" & ".join(parts) + r" \\")
 
@@ -905,19 +760,19 @@ def gen_setup_latex(uvc, g16, nova):
 
 def print_latex(csv_dir):
     """Generate all LaTeX output to stdout."""
-    uvc, g16, nova = load_all(csv_dir)
+    data = bench_data.load_run(csv_dir)
 
-    if not uvc:
+    if not data["uvc"]:
         print("% No UVC data found.", file=sys.stderr)
         return
 
-    print(gen_proving_latex(uvc, g16, nova))
+    print(gen_proving_latex(data))
     print()
     print()
-    print(gen_verify_proof_latex(uvc, g16, nova))
+    print(gen_verify_proof_latex(data))
     print()
     print()
-    print(gen_setup_latex(uvc, g16, nova))
+    print(gen_setup_latex(data))
 
 
 # ── Main ──────────────────────────────────────────────────────────

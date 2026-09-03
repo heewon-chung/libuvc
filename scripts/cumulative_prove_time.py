@@ -2,13 +2,17 @@
 """
 cumulative_prove_time.py — Cumulative proving-time comparison.
 
-Computes how total prover cost accumulates over B steps for UVC, Groth16,
-and Nova.  Outputs ASCII summary + optional per-step CSV for plotting.
+Computes how total prover cost accumulates over B steps for UVC, the three
+Groth16 baseline modes, and the two Nova series.  Outputs ASCII summary +
+optional per-step CSV for plotting.
 
-Cumulative definitions:
-  UVC:     setup + Σ_{j=1}^{step} prove_j   (prove_j ≈ constant)
-  Groth16: Σ_{j=1}^{step} (setup_j + prove_j)   (grows with j)
-  Nova:    setup + total_fold(step) + compress
+Cumulative definitions (see bench_data.py):
+  UVC:               setup + step * median(prove)
+  G16 on-demand:     Σ trapezoid of (setup_j + prove_j)   [prove-only variant too]
+  G16 fixed-CRS:     setup(C_B) + Σ trapezoid of prove_j
+  G16 single-step:   setup + Σ trapezoid of prove_j
+  Nova fold-only:    setup + total_fold(step)
+  Nova compressed:   setup + total_fold(step) + compress
 
 Usage:
     python3 scripts/cumulative_prove_time.py <csv_dir>
@@ -21,167 +25,78 @@ import csv
 import os
 import sys
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-# ── Display names & ordering ─────────────────────────────────────
-
-CIRCUIT_DISPLAY = {
-    "mimc": "MiMC hash chain",
-    "hadamard": "Hadamard product",
-    "matmul": "Hadamard product",
-    "scalable": "Repeated squaring",
-    "sensor_fusion": "Sensor fusion",
-    "pagerank": "PageRank",
-}
-
-CIRCUIT_ORDER = {
-    "mimc": 0, "hadamard": 1, "matmul": 1,
-    "scalable": 2, "sensor_fusion": 3, "pagerank": 4,
-}
+import bench_data
+from bench_data import (
+    CANONICAL_UVC_HEADER, CIRCUIT_DISPLAY, CIRCUIT_ORDER,
+    normalize_circuit, read_canonical_uvc, read_csv,
+)
 
 
-# ── CSV loading ──────────────────────────────────────────────────
+# ── Series definitions ───────────────────────────────────────────
 
-CANONICAL_UVC_HEADER = [
-    "scheme", "circuit", "n", "B", "step", "setup_ms", "prove_ms",
-    "verify_ms", "crs_g1_published", "crs_g2", "vk_st_abc_g1",
-    "proof_bytes", "proof_bytes_compressed", "peak_mem_mb", "commit",
+# (csv column, ascii/latex header, key in the per-step dict)
+SERIES = [
+    ("uvc_cum_s", "UVC", "uvc_cum_ms"),
+    ("g16_ondemand_cum_s", "G16 on-dem", "g16_ondemand_cum_ms"),
+    ("g16_ondemand_prove_only_cum_s", "G16 od-prv", "g16_ondemand_prove_only_cum_ms"),
+    ("g16_fixedcrs_cum_s", "G16 fixCRS", "g16_fixedcrs_cum_ms"),
+    ("g16_singlestep_cum_s", "G16 single", "g16_singlestep_cum_ms"),
+    ("nova_foldonly_cum_s", "Nova fold", "nova_foldonly_cum_ms"),
+    ("nova_compressed_cum_s", "Nova compr", "nova_compressed_cum_ms"),
 ]
 
+RATIOS = [
+    ("ratio_uvc_over_g16_ondemand_prove_only", "U/G16odp", "g16_ondemand_prove_only_cum_ms"),
+    ("ratio_uvc_over_g16_fixedcrs", "U/G16fix", "g16_fixedcrs_cum_ms"),
+    ("ratio_uvc_over_g16_singlestep", "U/G16ss", "g16_singlestep_cum_ms"),
+    ("ratio_uvc_over_nova_foldonly", "U/NovaF", "nova_foldonly_cum_ms"),
+    ("ratio_uvc_over_nova_compressed", "U/NovaC", "nova_compressed_cum_ms"),
+]
 
-def read_csv(path):
-    if not os.path.exists(path):
-        return []
-    with open(path) as f:
-        return list(csv.DictReader(f))
-
-
-def read_canonical_uvc(path):
-    try:
-        with open(path, newline="") as f:
-            reader = csv.DictReader(f)
-            if reader.fieldnames != CANONICAL_UVC_HEADER:
-                raise ValueError
-            rows = list(reader)
-    except (OSError, ValueError):
-        sys.exit(f"FATAL: {path}: not a canonical uvc_gamma_v1 results file (expected canonical header and scheme)")
-    if any(row.get("scheme") != "uvc_gamma_v1" for row in rows):
-        sys.exit(f"FATAL: {path}: not a canonical uvc_gamma_v1 results file (expected canonical header and scheme)")
-    return rows
+CSV_FIELDNAMES = (["circuit", "n", "B", "step"]
+                  + [c for c, _h, _k in SERIES]
+                  + [c for c, _h, _k in RATIOS])
 
 
-def normalize_circuit(name):
-    return "hadamard" if name == "matmul" else name
-
+# ── Data loading & cumulative computation ────────────────────────
 
 def load_data(csv_dir):
-    """Load and index benchmark CSVs."""
-    uvc_rows = read_canonical_uvc(os.path.join(csv_dir, "uvc_results.csv"))
-    g16_rows = read_csv(os.path.join(csv_dir, "groth16_results.csv"))
-    nova_rows = read_csv(os.path.join(csv_dir, "nova_results.csv"))
-
-    uvc = {}
-    for r in uvc_rows:
-        c = normalize_circuit(r["circuit"])
-        key = (c, int(r["n"]), int(r["B"]), int(r["step"]))
-        uvc[key] = r
-
-    g16 = {}
-    for r in g16_rows:
-        c = normalize_circuit(r["circuit"])
-        key = (c, int(r["n"]), int(r["step"]))
-        if key not in g16:
-            g16[key] = r
-
-    nova = {}
-    for r in nova_rows:
-        c = normalize_circuit(r.get("circuit", ""))
-        key = (c, int(r["n"]), int(r["step"]))
-        nova[key] = r
-
-    return uvc, g16, nova
+    """Load the run via the shared loader."""
+    return bench_data.load_run(csv_dir)
 
 
-def get_configs(uvc):
+def get_configs(data):
     """Unique (circuit, n, B) triples, paper-ordered."""
-    configs = set()
-    for (c, n, B, _) in uvc:
-        configs.add((c, n, B))
-    return sorted(configs, key=lambda x: (CIRCUIT_ORDER.get(x[0], 99), x[1], x[2]))
+    return bench_data.uvc_configs(data)
 
 
-# ── Cumulative computation ───────────────────────────────────────
-
-def compute_cumulative(uvc, g16, nova):
+def compute_cumulative(data):
     """Return list of per-step cumulative dicts for every config."""
-    configs = get_configs(uvc)
     rows = []
-
-    for circuit, n, B in configs:
-        # ── UVC ──
-        uvc_steps = sorted(
-            s for (c, nn, bb, s) in uvc if c == circuit and nn == n and bb == B
-        )
-        uvc_setup = float(uvc[(circuit, n, B, uvc_steps[0])]["setup_ms"])
-        prove_vals = [float(uvc[(circuit, n, B, s)]["prove_ms"]) for s in uvc_steps]
-        uvc_prove = sorted(prove_vals)[len(prove_vals) // 2]  # median
-
-        # ── Groth16 ──
-        g16_measured = sorted(s for (c, nn, s) in g16 if c == circuit and nn == n)
-        g16_cost_at = {}
-        for s in g16_measured:
-            r = g16[(circuit, n, s)]
-            g16_cost_at[s] = float(r["setup_ms"]) + float(r["prove_ms"])
-
-        # ── Nova ──
-        nova_measured = sorted(s for (c, nn, s) in nova if c == circuit and nn == n)
-        nova_setup = float(nova[(circuit, n, nova_measured[0])]["setup_ms"]) if nova_measured else 0
-        nova_compress = float(nova[(circuit, n, nova_measured[0])]["compress_ms"]) if nova_measured else 0
-
-        # ── Display steps: powers of 2 up to B ──
-        display = []
-        s = 1
-        while s <= B:
-            display.append(s)
-            s *= 2
-        if B not in display:
-            display.append(B)
-
-        for step in display:
-            # UVC cumulative
-            uvc_cum = uvc_setup + step * uvc_prove
-
-            # Groth16 cumulative via trapezoidal interpolation
-            g16_cum = 0.0
-            prev_j, prev_cost = 0, 0.0
-            for j in g16_measured:
-                if j > step:
-                    break
-                cost = g16_cost_at[j]
-                g16_cum += (j - prev_j) * (cost + prev_cost) / 2.0
-                prev_j, prev_cost = j, cost
-            if prev_j < step:
-                g16_cum += (step - prev_j) * prev_cost
-
-            # Nova cumulative
-            nv_r = nova.get((circuit, n, step))
-            nova_cum = None
-            if nv_r:
-                nova_cum = (
-                    float(nv_r["setup_ms"])
-                    + float(nv_r["total_fold_ms"])
-                    + float(nv_r["compress_ms"])
-                )
-
-            rows.append({
+    for circuit, n, B in get_configs(data):
+        for step in bench_data.measured_steps(B):
+            entry = {
                 "circuit": circuit,
                 "n": n,
                 "B": B,
                 "step": step,
-                "uvc_cum_ms": uvc_cum,
-                "g16_cum_ms": g16_cum,
-                "nova_cum_ms": nova_cum,
-            })
-
+                "uvc_cum_ms": bench_data.cumulative_uvc(data, circuit, n, B, step),
+                "g16_ondemand_cum_ms": bench_data.cumulative_groth16(
+                    data, "ondemand", circuit, n, B, step),
+                "g16_ondemand_prove_only_cum_ms": bench_data.cumulative_groth16(
+                    data, "ondemand", circuit, n, B, step, proving_only=True),
+                "g16_fixedcrs_cum_ms": bench_data.cumulative_groth16(
+                    data, "fixedcrs", circuit, n, B, step),
+                "g16_singlestep_cum_ms": bench_data.cumulative_groth16(
+                    data, "singlestep", circuit, n, B, step),
+                "nova_foldonly_cum_ms": bench_data.cumulative_nova(
+                    data, "foldonly", circuit, n, step),
+                "nova_compressed_cum_ms": bench_data.cumulative_nova(
+                    data, "compressed", circuit, n, step),
+            }
+            rows.append(entry)
     return rows
 
 
@@ -211,43 +126,41 @@ def ratio_str(a, b):
 
 # ── ASCII output ─────────────────────────────────────────────────
 
+ASCII_HEADERS = (["Circuit", "n", "B"]
+                 + [f"{h} (s)" for _c, h, _k in SERIES]
+                 + [h for _c, h, _k in RATIOS])
+
+
+def _ascii_values(r):
+    vals = [fmt_s(r[k]) for _c, _h, k in SERIES]
+    vals += [ratio_str(r["uvc_cum_ms"], r[k]) for _c, _h, k in RATIOS]
+    return vals
+
+
 def print_summary(rows):
     """Print per-config summary at max step (=B)."""
-    # Group by (circuit, n, B), take last entry (step == B)
     summary = {}
     for r in rows:
-        key = (r["circuit"], r["n"], r["B"])
         if r["step"] == r["B"]:
-            summary[key] = r
+            summary[(r["circuit"], r["n"], r["B"])] = r
 
-    headers = ["Circuit", "n", "B",
-               "UVC (s)", "Groth16 (s)", "Nova (s)",
-               "UVC/G16", "UVC/Nova"]
-    col_w = [max(len(h), 18) for h in headers]
+    col_w = [max(len(h), 11) for h in ASCII_HEADERS]
+    col_w[0] = max(col_w[0], 17)
     col_w[1] = 6
     col_w[2] = 5
 
+    total = sum(col_w) + 2 * (len(col_w) - 1)
     print()
-    print("=" * 90)
+    print("=" * total)
     print("  Cumulative Proving Time at step B (seconds)")
-    print("=" * 90)
-    hdr = "  ".join(h.rjust(w) for h, w in zip(headers, col_w))
-    sep = "  ".join("-" * w for w in col_w)
-    print(hdr)
-    print(sep)
+    print("=" * total)
+    print("  ".join(h.rjust(w) for h, w in zip(ASCII_HEADERS, col_w)))
+    print("  ".join("-" * w for w in col_w))
 
     for key in sorted(summary, key=lambda k: (CIRCUIT_ORDER.get(k[0], 99), k[1], k[2])):
         r = summary[key]
-        vals = [
-            CIRCUIT_DISPLAY.get(r["circuit"], r["circuit"]),
-            str(r["n"]),
-            str(r["B"]),
-            fmt_s(r["uvc_cum_ms"]),
-            fmt_s(r["g16_cum_ms"]),
-            fmt_s(r["nova_cum_ms"]),
-            ratio_str(r["uvc_cum_ms"], r["g16_cum_ms"]),
-            ratio_str(r["uvc_cum_ms"], r["nova_cum_ms"]),
-        ]
+        vals = [CIRCUIT_DISPLAY.get(r["circuit"], r["circuit"]),
+                str(r["n"]), str(r["B"])] + _ascii_values(r)
         print("  ".join(v.rjust(w) for v, w in zip(vals, col_w)))
     print()
 
@@ -262,6 +175,10 @@ def print_per_step(rows):
             seen.add(key)
             configs.append(key)
 
+    headers = ["Step"] + [f"{h} (s)" for _c, h, _k in SERIES] + [h for _c, h, _k in RATIOS]
+    col_w = [max(len(h), 11) for h in headers]
+    col_w[0] = 6
+
     for circuit, n, B in configs:
         config_rows = [r for r in rows
                        if r["circuit"] == circuit and r["n"] == n and r["B"] == B]
@@ -269,51 +186,52 @@ def print_per_step(rows):
 
         print()
         print(f"── {name}  n={n}  B={B} " + "─" * 50)
-        headers = ["Step", "UVC (s)", "Groth16 (s)", "Nova (s)", "UVC/G16", "UVC/Nova"]
-        col_w = [6, 12, 12, 12, 9, 9]
-        hdr = "  ".join(h.rjust(w) for h, w in zip(headers, col_w))
-        sep = "  ".join("-" * w for w in col_w)
-        print(hdr)
-        print(sep)
+        print("  ".join(h.rjust(w) for h, w in zip(headers, col_w)))
+        print("  ".join("-" * w for w in col_w))
 
         for r in config_rows:
-            vals = [
-                str(r["step"]),
-                fmt_s(r["uvc_cum_ms"]),
-                fmt_s(r["g16_cum_ms"]),
-                fmt_s(r["nova_cum_ms"]),
-                ratio_str(r["uvc_cum_ms"], r["g16_cum_ms"]),
-                ratio_str(r["uvc_cum_ms"], r["nova_cum_ms"]),
-            ]
+            vals = [str(r["step"])] + _ascii_values(r)
             print("  ".join(v.rjust(w) for v, w in zip(vals, col_w)))
     print()
 
 
 # ── CSV output ───────────────────────────────────────────────────
 
+def _cell_s(ms):
+    return f"{ms / 1000:.4f}" if ms is not None else ""
+
+
+def _cell_ratio(a, b):
+    if a is None or b is None or b == 0:
+        return ""
+    return f"{a / b:.4f}"
+
+
 def write_csv_file(rows, path):
     """Write per-step cumulative data to CSV."""
-    fieldnames = [
-        "circuit", "n", "B", "step",
-        "uvc_cum_s", "g16_cum_s", "nova_cum_s",
-    ]
     with open(path, "w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer = csv.DictWriter(f, fieldnames=CSV_FIELDNAMES)
         writer.writeheader()
         for r in rows:
-            writer.writerow({
-                "circuit": r["circuit"],
-                "n": r["n"],
-                "B": r["B"],
-                "step": r["step"],
-                "uvc_cum_s": f"{r['uvc_cum_ms'] / 1000:.4f}",
-                "g16_cum_s": f"{r['g16_cum_ms'] / 1000:.4f}",
-                "nova_cum_s": f"{r['nova_cum_ms'] / 1000:.4f}" if r["nova_cum_ms"] else "",
-            })
+            out = {"circuit": r["circuit"], "n": r["n"], "B": r["B"], "step": r["step"]}
+            for col, _h, key in SERIES:
+                out[col] = _cell_s(r[key])
+            for col, _h, key in RATIOS:
+                out[col] = _cell_ratio(r["uvc_cum_ms"], r[key])
+            writer.writerow(out)
     print(f"  Saved: {path}")
 
 
 # ── LaTeX output ─────────────────────────────────────────────────
+
+LATEX_HEADERS = ([r"\textbf{Ours}", r"\textbf{G16 on-dem.}",
+                  r"\textbf{G16 on-dem.\ prove}", r"\textbf{G16 fix.\ CRS}",
+                  r"\textbf{G16 single}", r"\textbf{Nova fold}",
+                  r"\textbf{Nova compr.}"]
+                 + [r"\textbf{Ours/G16 od-prv}", r"\textbf{Ours/G16 fix}",
+                    r"\textbf{Ours/G16 ss}", r"\textbf{Ours/Nova fold}",
+                    r"\textbf{Ours/Nova compr}"])
+
 
 def latex_circuit(circuit):
     names = {
@@ -330,13 +248,11 @@ def print_latex(rows):
     """Print LaTeX table of cumulative totals at max step."""
     summary = {}
     for r in rows:
-        key = (r["circuit"], r["n"], r["B"])
         if r["step"] == r["B"]:
-            summary[key] = r
+            summary[(r["circuit"], r["n"], r["B"])] = r
 
     configs = sorted(summary, key=lambda k: (CIRCUIT_ORDER.get(k[0], 99), k[1], k[2]))
 
-    # Group by (circuit, n) for multirow
     groups = []
     prev = None
     for key in configs:
@@ -346,19 +262,18 @@ def print_latex(rows):
             prev = (c, n)
         groups[-1].append(key)
 
+    ncols = 3 + len(SERIES) + len(RATIOS)
     lines = [
         r"% Auto-generated by cumulative_prove_time.py",
-        r"\begin{table}[t]",
+        r"\begin{table*}[t]",
         r"\centering",
         r"\caption{Cumulative proving time (seconds) over $B$ steps.}",
         r"\label{tab:cumulative}",
         r"\renewcommand{\arraystretch}{1.2}",
-        r"{\footnotesize",
-        r"\begin{tabular}{@{}ccrrrrrr@{}}",
+        r"{\scriptsize\setlength{\tabcolsep}{3pt}",
+        r"\begin{tabular}{@{}cc" + "r" * (ncols - 2) + r"@{}}",
         r"\toprule",
-        (r"\textbf{Circuit} & $K$ & $B$ & "
-         r"\textbf{Ours} & \textbf{Groth16} & \textbf{Nova} & "
-         r"\textbf{Ours/G16} & \textbf{Ours/Nova} \\"),
+        " & ".join([r"\textbf{Circuit}", "$K$", "$B$"] + LATEX_HEADERS) + r" \\",
         r"\midrule",
     ]
 
@@ -373,16 +288,13 @@ def print_latex(rows):
             else:
                 circ, ncol = "", ""
 
-            uvc_s = r["uvc_cum_ms"] / 1000
-            g16_s = r["g16_cum_ms"] / 1000
-            nova_s = r["nova_cum_ms"] / 1000 if r["nova_cum_ms"] else None
-
             parts = [circ, ncol, str(B)]
-            parts.append(f"{uvc_s:.1f}")
-            parts.append(f"{g16_s:.1f}")
-            parts.append(f"{nova_s:.1f}" if nova_s else "---")
-            parts.append(f"{uvc_s/g16_s:.2f}" if g16_s else "---")
-            parts.append(f"{uvc_s/nova_s:.2f}" if nova_s else "---")
+            for _col, _h, key_ms in SERIES:
+                v = r[key_ms]
+                parts.append(f"{v / 1000:.1f}" if v is not None else "---")
+            for _col, _h, key_ms in RATIOS:
+                a, b = r["uvc_cum_ms"], r[key_ms]
+                parts.append(f"{a / b:.2f}" if (a is not None and b) else "---")
             lines.append(" & ".join(parts) + r" \\")
 
         if gi < len(groups) - 1:
@@ -391,8 +303,8 @@ def print_latex(rows):
     lines += [
         r"\bottomrule",
         r"\end{tabular}",
-        r"}% end footnotesize",
-        r"\end{table}",
+        r"}% end scriptsize",
+        r"\end{table*}",
     ]
     print("\n".join(lines))
 
@@ -403,7 +315,7 @@ def main():
     parser = argparse.ArgumentParser(
         description="Compute cumulative proving time across steps.")
     parser.add_argument("csv_dir",
-        help="Directory containing {uvc,groth16,nova}_results.csv")
+        help="Directory containing {uvc,groth16,groth16_modes,nova}_results.csv")
     parser.add_argument("--out",
         help="Write per-step cumulative CSV to this path")
     parser.add_argument("--latex", action="store_true",
@@ -412,16 +324,16 @@ def main():
         help="Show per-step cumulative breakdown")
     args = parser.parse_args()
 
-    uvc, g16, nova = load_data(args.csv_dir)
-    if not uvc:
+    data = load_data(args.csv_dir)
+    if not data["uvc"]:
         print("No UVC data found.", file=sys.stderr)
         sys.exit(1)
 
-    rows = compute_cumulative(uvc, g16, nova)
+    rows = compute_cumulative(data)
 
     print()
     print(f"  Data: {args.csv_dir}")
-    print(f"  Configs: {len(get_configs(uvc))}")
+    print(f"  Configs: {len(get_configs(data))}")
 
     if args.latex:
         print_latex(rows)

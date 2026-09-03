@@ -15,9 +15,18 @@ UVC_HEADER = [
 GROTH16_HEADER = [
     "circuit", "n", "step", "setup_ms", "prove_ms", "verify_ms", "crs_g1", "crs_g2", "proof_bytes",
 ]
-NOVA_HEADER = [
-    "circuit", "n", "step", "setup_ms", "fold_ms", "total_fold_ms", "compress_ms", "verify_ms", "proof_bytes",
+GROTH16_MODES_HEADER = [
+    "mode", "circuit", "n", "B", "step", "setup_ms", "prove_ms",
+    "prove_ms_mean", "prove_ms_stddev", "prove_ms_min", "prove_ms_max",
+    "verify_ms", "verify_ms_stddev", "crs_g1", "crs_g2", "proof_bytes",
+    "num_constraints", "num_primary", "commit",
 ]
+NOVA_HEADER = [
+    "circuit", "n", "step", "run_id", "warmup", "setup_ms", "fold_ms",
+    "total_fold_ms", "compress_ms", "verify_ms", "proof_bytes",
+]
+
+GROTH16_MODE_NAMES = ("ondemand", "fixedcrs", "singlestep")
 
 
 def fail(message):
@@ -128,17 +137,32 @@ def main(argv):
     schemes = manifest.get("schemes", [])
     if not isinstance(schemes, list):
         fail("Invalid schemes in coordinate manifest: %s" % manifest_path)
+
+    modes_index = set()
+    if "groth16_fixedcrs" in schemes:
+        modes_path = os.path.join(csv_dir, "groth16_modes_results.csv")
+        modes_rows = read_rows(modes_path, GROTH16_MODES_HEADER)
+        validate_rows(modes_rows, modes_path, GROTH16_MODES_HEADER[5:18])
+        for row_number, row in modes_rows:
+            integer(row["B"], modes_path, row_number, "B")
+        require_unique(modes_rows, modes_path, ("mode", "circuit", "n", "B", "step"))
+        modes_index = {
+            (row["mode"], row["circuit"], int(row["n"]), int(row["B"]), int(row["step"]))
+            for _, row in modes_rows
+        }
+
     nova_index = set()
     if "nova" in schemes:
         nova_path = os.path.join(csv_dir, "nova_results.csv")
         nova_rows = read_rows(nova_path, NOVA_HEADER)
-        validate_rows(nova_rows, nova_path, NOVA_HEADER[3:])
+        validate_rows(nova_rows, nova_path, NOVA_HEADER[5:])
         nova_index = {(row["circuit"], int(row["n"]), int(row["step"])) for _, row in nova_rows}
-        require_unique(nova_rows, nova_path, ("circuit", "n", "step"))
+        require_unique(nova_rows, nova_path, ("circuit", "n", "step", "run_id"))
 
     errors = []
     expected_uvc = set()
     expected_groth = set()
+    expected_modes = set()
     expected_nova = set()
     for coordinate in manifest["coordinates"]:
         try:
@@ -163,12 +187,20 @@ def main(argv):
                 errors.append("Missing UVC row for %s n=%d B=%d step=%d" % (circuit, n, bound, step))
             if (circuit, n, step) not in groth_index:
                 errors.append("Missing Groth16 row for %s n=%d B=%d step=%d" % (circuit, n, bound, step))
+            if "groth16_fixedcrs" in schemes:
+                for mode in GROTH16_MODE_NAMES:
+                    expected_modes.add((mode, circuit, n, bound, step))
+                    if (mode, circuit, n, bound, step) not in modes_index:
+                        errors.append("Missing Groth16 %s row for %s n=%d B=%d step=%d"
+                                      % (mode, circuit, n, bound, step))
             if "nova" in schemes and (circuit, n, step) not in nova_index:
                 errors.append("Missing Nova row for %s n=%d B=%d step=%d" % (circuit, n, bound, step))
     for key in sorted(uvc_index - expected_uvc):
         errors.append("Unexpected UVC row for %s n=%d B=%d step=%d" % key)
     for key in sorted(groth_index - expected_groth):
         errors.append("Unexpected Groth16 row for %s n=%d step=%d" % key)
+    for key in sorted(modes_index - expected_modes):
+        errors.append("Unexpected Groth16 %s row for %s n=%d B=%d step=%d" % key)
     for key in sorted(nova_index - expected_nova):
         errors.append("Unexpected Nova row for %s n=%d step=%d" % key)
     if errors:

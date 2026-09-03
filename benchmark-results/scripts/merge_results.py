@@ -12,6 +12,12 @@ import os
 import sys
 from collections import defaultdict
 
+sys.path.insert(0, os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+    "scripts"))
+
+import bench_data
+
 
 CANONICAL_UVC_HEADER = [
     "scheme", "circuit", "n", "B", "step", "setup_ms", "prove_ms",
@@ -54,11 +60,28 @@ def dedup_groth16(rows):
     return list(seen.values())
 
 
+NOVA_NUMERIC = ('setup_ms', 'fold_ms', 'total_fold_ms', 'compress_ms',
+                'verify_ms', 'fold_ms_iqr', 'compress_ms_iqr')
+
+
+def nova_cell(row, field):
+    """Format one aggregated Nova field for the combined CSV."""
+    value = row.get(field, '')
+    if value == '':
+        return ''
+    if field in NOVA_NUMERIC:
+        return f'{float(value):.2f}'
+    if field in ('proof_bytes', 'n_runs'):
+        return str(int(float(value)))
+    return str(value)
+
+
 def merge_results(input_dir, output_path):
     """Merge results from all three systems."""
     uvc_rows = read_canonical_uvc(os.path.join(input_dir, 'uvc_results.csv'))
     g16_rows = read_csv(os.path.join(input_dir, 'groth16_results.csv'))
-    nova_rows = read_csv(os.path.join(input_dir, 'nova_results.csv'))
+    # Nova: multiple run_ids per step collapse to one aggregated (median) row.
+    nova_rows = list(bench_data.load_run(input_dir)["nova"].values())
 
     # Deduplicate Groth16 (same circuit run under different B values produces dupes)
     g16_rows = dedup_groth16(g16_rows)
@@ -100,9 +123,11 @@ def merge_results(input_dir, output_path):
             g16.get('setup_ms', ''), g16.get('prove_ms', ''),
             g16.get('verify_ms', ''), g16.get('crs_g1', ''),
             g16.get('crs_g2', ''), g16.get('proof_bytes', ''),
-            nova.get('setup_ms', ''), nova.get('fold_ms', ''),
-            nova.get('total_fold_ms', ''), nova.get('compress_ms', ''),
-            nova.get('verify_ms', ''), nova.get('proof_bytes', ''),
+            nova_cell(nova, 'setup_ms'), nova_cell(nova, 'fold_ms'),
+            nova_cell(nova, 'total_fold_ms'), nova_cell(nova, 'compress_ms'),
+            nova_cell(nova, 'verify_ms'), nova_cell(nova, 'proof_bytes'),
+            nova_cell(nova, 'fold_ms_iqr'), nova_cell(nova, 'compress_ms_iqr'),
+            nova_cell(nova, 'n_runs'),
         ])
 
     for r in g16_rows:
@@ -112,15 +137,17 @@ def merge_results(input_dir, output_path):
             r.get('setup_ms', ''), r.get('prove_ms', ''),
             r.get('verify_ms', ''), r.get('crs_g1', ''),
             r.get('crs_g2', ''), r.get('proof_bytes', ''),
-            '', '', '', '', '', '',
+            '', '', '', '', '', '', '', '', '',
         ])
     for r in nova_rows:
         all_rows.append([
             'nova', r.get('circuit', ''), r.get('n', ''), '', r.get('step', ''),
             '', '', '', '', '', '', '', '', '', '', '', '', '',
-            r.get('setup_ms', ''), r.get('fold_ms', ''),
-            r.get('total_fold_ms', ''), r.get('compress_ms', ''),
-            r.get('verify_ms', ''), r.get('proof_bytes', ''),
+            nova_cell(r, 'setup_ms'), nova_cell(r, 'fold_ms'),
+            nova_cell(r, 'total_fold_ms'), nova_cell(r, 'compress_ms'),
+            nova_cell(r, 'verify_ms'), nova_cell(r, 'proof_bytes'),
+            nova_cell(r, 'fold_ms_iqr'), nova_cell(r, 'compress_ms_iqr'),
+            nova_cell(r, 'n_runs'),
         ])
 
     with open(output_path, 'w', newline='') as f:
@@ -133,6 +160,7 @@ def merge_results(input_dir, output_path):
             'g16_crs_g1', 'g16_crs_g2', 'g16_proof_bytes',
             'nova_setup_ms', 'nova_fold_ms', 'nova_total_fold_ms',
             'nova_compress_ms', 'nova_verify_ms', 'nova_proof_bytes',
+            'nova_fold_ms_iqr', 'nova_compress_ms_iqr', 'nova_n_runs',
         ])
         writer.writerows(all_rows)
 
