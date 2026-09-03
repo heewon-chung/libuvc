@@ -658,6 +658,7 @@ dependencies = [
  "csv",
  "ff",
  "nova-snark",
+ "rayon",
  "serde",
 ]
 

@@ -43,6 +43,36 @@ struct Args {
 
     #[arg(long, default_value = ".")]
     output_dir: String,
+
+    #[arg(long, default_value = "1")]
+    runs: usize,
+
+    #[arg(long, default_value_t = false)]
+    warmup: bool,
+
+    #[arg(long, default_value_t = false)]
+    print_config: bool,
+}
+
+const NOVA_SNARK_VERSION: &str = "0.58.0"; // keep in sync with Cargo.lock
+
+fn print_config() {
+    eprintln!("nova_bench_config primary_snark={}", std::any::type_name::<S1>());
+    eprintln!("nova_bench_config secondary_snark={}", std::any::type_name::<S2>());
+    eprintln!("nova_bench_config rayon_threads={}", rayon::current_num_threads());
+    eprintln!("nova_bench_config nova_snark_version={}", NOVA_SNARK_VERSION);
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn cargo_lock_pins_nova_snark_version() {
+        let lock = include_str!("../Cargo.lock");
+        assert!(
+            lock.contains("name = \"nova-snark\"\nversion = \"0.58.0\""),
+            "Cargo.lock does not pin nova-snark 0.58.0"
+        );
+    }
 }
 
 struct BenchResult {
@@ -70,7 +100,7 @@ fn get_measured_steps(max_steps: usize) -> Vec<usize> {
     steps
 }
 
-fn write_csv(result: &BenchResult, output_dir: &str) {
+fn write_csv(result: &BenchResult, output_dir: &str, run_id: usize, warmup: bool) {
     let path = format!("{}/nova_results.csv", output_dir);
     let write_header = !std::path::Path::new(&path).exists();
     let file = std::fs::OpenOptions::new()
@@ -85,6 +115,8 @@ fn write_csv(result: &BenchResult, output_dir: &str) {
             "circuit",
             "n",
             "step",
+            "run_id",
+            "warmup",
             "setup_ms",
             "fold_ms",
             "total_fold_ms",
@@ -110,6 +142,8 @@ fn write_csv(result: &BenchResult, output_dir: &str) {
             &result.circuit,
             &result.n.to_string(),
             &s.to_string(),
+            &run_id.to_string(),
+            &(if warmup { "1" } else { "0" }).to_string(),
             &format!("{:.2}", result.setup_ms),
             &format!("{:.2}", fold_time),
             &format!("{:.2}", cumulative_fold),
@@ -563,8 +597,83 @@ fn bench_sensor_fusion(n: usize, num_steps: usize) -> BenchResult {
     }
 }
 
+/// Untimed warm-up: build the same public parameters and step-1 circuit as the
+/// matching `bench_*` function, run `RecursiveSNARK::new` + one `prove_step`,
+/// then discard everything.
+fn warmup_one<C: nova_snark::traits::circuit::StepCircuit<F1>>(
+    setup_circuit: &C,
+    step_circuit: &C,
+    z0: &[F1],
+) {
+    let pp = PublicParams::<E1, E2, C>::setup(setup_circuit, &|_| 0, &|_| 0)
+        .expect("PublicParams setup failed");
+    let mut recursive_snark =
+        RecursiveSNARK::new(&pp, step_circuit, z0).expect("RecursiveSNARK::new failed");
+    recursive_snark
+        .prove_step(&pp, step_circuit)
+        .expect("prove_step failed");
+}
+
+fn warmup_fold(circuit: &str, n: usize) {
+    eprintln!("  [Warm-up] Untimed step-1 fold...");
+    match circuit {
+        "mimc" => {
+            let rounds = n / 3;
+            warmup_one(
+                &MiMCCircuit::<F1>::new(rounds),
+                &MiMCCircuit::with_input(rounds, F1::from(4u64)),
+                &[F1::from(2u64)],
+            );
+        }
+        "hadamard" | "matmul" => {
+            let dim = n;
+            let z0: Vec<F1> = (0..dim).map(|i| F1::from((2 + i) as u64)).collect();
+            let t_vals: Vec<F1> = (0..dim).map(|j| F1::from((4 + j) as u64)).collect();
+            warmup_one(
+                &HadamardCircuit::<F1>::new(dim),
+                &HadamardCircuit::with_input(dim, t_vals),
+                &z0,
+            );
+        }
+        "pagerank" => {
+            let num_nodes = n;
+            let inv_n: F1 =
+                Option::from(F1::from(num_nodes as u64).invert()).expect("N is non-zero");
+            let z0: Vec<F1> = vec![inv_n; num_nodes];
+            let c = PageRankCircuit::<F1>::new(num_nodes);
+            warmup_one(&c, &c, &z0);
+        }
+        "sensor_fusion" => {
+            let num_sensors = n;
+            let readings: Vec<F1> = (0..num_sensors).map(|k| F1::from((k + 1) as u64)).collect();
+            warmup_one(
+                &SensorFusionCircuit::<F1>::new(num_sensors),
+                &SensorFusionCircuit::with_readings(num_sensors, readings),
+                &[F1::ZERO],
+            );
+        }
+        "scalable" => {
+            warmup_one(
+                &ScalableCircuit::<F1>::new(n),
+                &ScalableCircuit::with_input(n, F1::from(4u64)),
+                &[F1::from(2u64)],
+            );
+        }
+        other => {
+            eprintln!("Unknown circuit: {}", other);
+            std::process::exit(1);
+        }
+    }
+}
+
 fn main() {
     let args = Args::parse();
+
+    if args.print_config {
+        print_config();
+        return;
+    }
+    print_config();
 
     eprintln!("================================================================");
     eprintln!("Nova Folding-Scheme Benchmark");
@@ -574,29 +683,37 @@ fn main() {
         args.circuit, args.n, args.steps
     );
 
-    let result = match args.circuit.as_str() {
-        "mimc" => bench_mimc(args.n, args.steps),
-        "hadamard" | "matmul" => bench_hadamard(args.n, args.steps),
-        "pagerank" => bench_pagerank(args.n, args.steps),
-        "sensor_fusion" => bench_sensor_fusion(args.n, args.steps),
-        "scalable" => bench_scalable(args.n, args.steps),
-        other => {
-            eprintln!("Unknown circuit: {}", other);
-            std::process::exit(1);
+    for run_id in 0..args.runs {
+        eprintln!("\n  === Run {}/{} ===", run_id + 1, args.runs);
+
+        if args.warmup {
+            warmup_fold(&args.circuit, args.n);
         }
-    };
 
-    eprintln!("\n  Summary:");
-    eprintln!("    Setup:         {:.1} ms", result.setup_ms);
-    eprintln!("    Total fold:    {:.1} ms", result.total_fold_ms);
-    eprintln!(
-        "    Avg fold/step: {:.2} ms",
-        result.total_fold_ms / result.num_steps as f64
-    );
-    eprintln!("    Compress:      {:.1} ms", result.compress_ms);
-    eprintln!("    Verify:        {:.2} ms", result.verify_ms);
+        let result = match args.circuit.as_str() {
+            "mimc" => bench_mimc(args.n, args.steps),
+            "hadamard" | "matmul" => bench_hadamard(args.n, args.steps),
+            "pagerank" => bench_pagerank(args.n, args.steps),
+            "sensor_fusion" => bench_sensor_fusion(args.n, args.steps),
+            "scalable" => bench_scalable(args.n, args.steps),
+            other => {
+                eprintln!("Unknown circuit: {}", other);
+                std::process::exit(1);
+            }
+        };
 
-    write_csv(&result, &args.output_dir);
+        eprintln!("\n  Summary:");
+        eprintln!("    Setup:         {:.1} ms", result.setup_ms);
+        eprintln!("    Total fold:    {:.1} ms", result.total_fold_ms);
+        eprintln!(
+            "    Avg fold/step: {:.2} ms",
+            result.total_fold_ms / result.num_steps as f64
+        );
+        eprintln!("    Compress:      {:.1} ms", result.compress_ms);
+        eprintln!("    Verify:        {:.2} ms", result.verify_ms);
+
+        write_csv(&result, &args.output_dir, run_id, args.warmup);
+    }
 
     eprintln!("\n================================================================");
     eprintln!("Nova benchmark complete.");
