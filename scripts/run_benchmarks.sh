@@ -8,6 +8,7 @@
 #   ./scripts/run_benchmarks.sh --cpp-only   # C++ benchmarks only (UVC + Groth16)
 #   ./scripts/run_benchmarks.sh --nova-only  # Nova benchmarks only (Rust)
 #   ./scripts/run_benchmarks.sh --tables-only # Merge + generate tables from existing CSVs
+#   ./scripts/run_benchmarks.sh --groth16-only # Groth16 modes only, at the bound-matched coordinates
 #   ./scripts/run_benchmarks.sh --nova-runs N # Nova re-runs per configuration (default 5)
 #
 # Output:
@@ -92,6 +93,21 @@ while [[ $# -gt 0 ]]; do
         --cpp-only)   MODE="cpp"; shift ;;
         --nova-only)  MODE="nova"; shift ;;
         --tables-only) MODE="tables"; shift ;;
+        --groth16-only)
+            # Bound-matched Groth16 sweep: measures only the (circuit, B)
+            # coordinates missing from the paper-grade run, so existing
+            # UVC/Nova data stays untouched.
+            MODE="groth16"
+            TAG="g16-bound"
+            GROTH16_CONFIGS=(
+                "mimc:270:16"
+                "hadamard:16:16"
+                "hadamard:32:16"
+                "scalable:1024:16"
+                "scalable:16384:16"
+            )
+            shift
+            ;;
         --reps)       REPS="$2"; shift 2 ;;
         --nova-runs)  NOVA_RUNS="$2"; shift 2 ;;
         --help|-h)
@@ -166,6 +182,9 @@ elif mode == "cpp":
 elif mode == "all":
     selected_configs = cpp_configs
     schemes = ["uvc_gamma_v1", "groth16", "groth16_fixedcrs", "groth16_singlestep", "nova"]
+elif mode == "groth16":
+    selected_configs = []
+    schemes = ["groth16", "groth16_fixedcrs", "groth16_singlestep"]
 else:
     selected_configs = cpp_configs
     schemes = []
@@ -188,7 +207,7 @@ def build(configs):
 coordinates = build(selected_configs)
 # The Groth16 sweep runs its own, usually smaller, config list, so the three
 # Groth16 modes are checked against these coordinates, not the UVC ones.
-groth16_coordinates = build(groth16_configs) if mode in ("cpp", "all") else []
+groth16_coordinates = build(groth16_configs) if mode in ("cpp", "all", "groth16") else []
 
 with open(output, "w") as target:
     json.dump({"suite": "paper", "schemes": schemes, "coordinates": coordinates,
@@ -388,6 +407,7 @@ run_cpp() {
 
     local i=0
     for config in "${CONFIGS[@]}"; do
+        [[ "$MODE" == "groth16" ]] && break   # --groth16-only: no UVC re-measurement
         IFS=: read -r circuit n B <<< "$config"
         i=$((i + 1))
 
@@ -541,6 +561,7 @@ run_verify() {
 # ── Main ────────────────────────────────────────────────────────────
 case "$MODE" in
     cpp)    build_all; run_cpp ;;
+    groth16) build_all; run_cpp; write_run_manifest ;;
     nova)   build_all; run_nova ;;
     tables)
         # For --tables-only, look for existing CSVs
